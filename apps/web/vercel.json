@@ -1,0 +1,6 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "cd ../.. && bun install && bun run build --filter=@react-email-builder/web",
+  "installCommand": "bun install",
+  "framework": "nextjs"
+}

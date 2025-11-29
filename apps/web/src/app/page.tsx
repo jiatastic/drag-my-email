@@ -230,6 +230,16 @@ function SortableEmailComponent({
 
   const renderContent = () => {
     const props = component.props;
+    
+    // Helper to add px unit if value is numeric (shared by all components)
+    const formatSize = (value: any, fallback: string) => {
+      if (!value && value !== 0) return fallback;
+      // If it's a number or a string that's purely numeric, add px
+      if (typeof value === "number" || /^\d+$/.test(String(value))) {
+        return `${value}px`;
+      }
+      return value;
+    };
     const componentStyle = {
       fontSize: props.fontSize || (component.type === "heading" ? "24px" : "14px"),
       fontWeight: props.fontWeight ? parseInt(props.fontWeight) : (component.type === "heading" ? 600 : component.type === "button" ? 600 : 400),
@@ -349,21 +359,30 @@ function SortableEmailComponent({
           </a>
         );
       case "image":
+        const imageAlign = props.align || "center";
         const imageStyle: React.CSSProperties = {
-          width: props.width || "100%",
-          height: props.height || "auto",
-          borderRadius: props.borderRadius || (props.width === "96" && props.height === "96" ? "50%" : "12px"),
-          margin: props.margin || (props.width === "96" && props.height === "96" ? "0 auto 16px" : "12px 0"),
+          width: formatSize(props.width, "100%"),
+          height: formatSize(props.height, "auto"),
+          borderRadius: formatSize(props.borderRadius, props.width === "96" && props.height === "96" ? "50%" : "12px"),
+          marginBottom: formatSize(props.marginBottom, "12px"),
           display: "block",
+          marginLeft: imageAlign === "center" ? "auto" : imageAlign === "right" ? "auto" : "0",
+          marginRight: imageAlign === "center" ? "auto" : imageAlign === "left" ? "auto" : "0",
         };
         // Handle background color wrapper for images (like AWS logo in dark header)
         if (props.backgroundColor) {
           return (
-            <div style={{ backgroundColor: props.backgroundColor, padding: props.padding || "0", borderRadius: props.borderRadius || "0", textAlign: "center" }}>
+            <div style={{ 
+              backgroundColor: props.backgroundColor, 
+              padding: props.padding || "0", 
+              borderRadius: formatSize(props.borderRadius, "0"), 
+              textAlign: imageAlign as "left" | "center" | "right",
+              marginBottom: formatSize(props.marginBottom, "12px"),
+            }}>
               <img 
                 src={props.src || "https://placehold.co/480x200/e8f4fd/1d9bf0?text=Your+Image"} 
                 alt={props.alt || "Image"} 
-                style={imageStyle}
+                style={{...imageStyle, marginBottom: 0}}
               />
             </div>
           );
@@ -376,7 +395,11 @@ function SortableEmailComponent({
           />
         );
       case "divider":
-        return <hr style={{ border: "none", borderTop: `1px solid ${props.borderColor || "#e1e8ed"}`, margin: props.margin || "24px 0" }} />;
+        return <hr style={{ 
+          border: "none", 
+          borderTop: `${formatSize(props.borderWidth, "1px")} ${props.borderStyle || "solid"} ${props.borderColor || "#e1e8ed"}`, 
+          margin: props.margin || "24px 0" 
+        }} />;
       case "code":
         return (
           <pre
@@ -528,7 +551,7 @@ function SortableEmailComponent({
         {renderContent()}
         
         {/* Floating toolbar */}
-        <div className={`absolute -top-7 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-[#1d1d1f] text-white rounded-lg px-2.5 py-1.5 text-xs font-medium transition-opacity z-20 whitespace-nowrap shadow-[0_4px_12px_rgba(0,0,0,0.15)] pointer-events-auto ${
+        <div className={`absolute -top-7 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-primary text-primary-foreground rounded-lg px-2.5 py-1.5 text-xs font-medium transition-opacity z-20 whitespace-nowrap shadow-[0_4px_12px_rgba(0,0,0,0.15)] pointer-events-auto ${
           showToolbar ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}>
           <button
@@ -568,7 +591,7 @@ function getDefaultProps(type: string) {
     case "image":
       return { src: "https://placehold.co/480x200/e8f4fd/1d9bf0?text=Your+Image", alt: "Image" };
     case "divider":
-      return {};
+      return { borderColor: "#e1e8ed", borderWidth: "1px", borderStyle: "solid", margin: "24px 0" };
     case "code":
       return { 
         text: "const hello = 'world';",
@@ -783,7 +806,7 @@ function PropertyPanel({
                     value={getProp("width", "")}
                     onChange={(e) => updateProp("width", e.target.value)}
                     className="w-full px-2 py-1.5 text-xs border border-[#d1d1d6] rounded-md bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
-                    placeholder="auto"
+                    placeholder="200 or 100%"
                   />
                 </div>
                 <div>
@@ -793,8 +816,76 @@ function PropertyPanel({
                     value={getProp("height", "")}
                     onChange={(e) => updateProp("height", e.target.value)}
                     className="w-full px-2 py-1.5 text-xs border border-[#d1d1d6] rounded-md bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
-                    placeholder="auto"
+                    placeholder="150 or auto"
                   />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] text-[#86868b] mb-1 font-medium">Alignment</label>
+                <div className="flex bg-[#f5f5f7] rounded-md p-0.5">
+                  {(() => {
+                    const currentAlign = getProp("align", "center");
+                    return (
+                      <>
+                        <button
+                          onClick={() => updateProp("align", "left")}
+                          className={`flex-1 px-2 py-1.5 rounded text-xs font-medium transition-all ${
+                            currentAlign === "left"
+                              ? 'bg-white shadow-sm text-[#1d1d1f]'
+                              : 'text-[#86868b] hover:text-[#1d1d1f]'
+                          }`}
+                        >
+                          <AlignLeft className="h-3.5 w-3.5 mx-auto" />
+                        </button>
+                        <button
+                          onClick={() => updateProp("align", "center")}
+                          className={`flex-1 px-2 py-1.5 rounded text-xs font-medium transition-all ${
+                            currentAlign === "center"
+                              ? 'bg-white shadow-sm text-[#1d1d1f]'
+                              : 'text-[#86868b] hover:text-[#1d1d1f]'
+                          }`}
+                        >
+                          <AlignCenter className="h-3.5 w-3.5 mx-auto" />
+                        </button>
+                        <button
+                          onClick={() => updateProp("align", "right")}
+                          className={`flex-1 px-2 py-1.5 rounded text-xs font-medium transition-all ${
+                            currentAlign === "right"
+                              ? 'bg-white shadow-sm text-[#1d1d1f]'
+                              : 'text-[#86868b] hover:text-[#1d1d1f]'
+                          }`}
+                        >
+                          <AlignRight className="h-3.5 w-3.5 mx-auto" />
+                        </button>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] text-[#86868b] mb-1 font-medium">Background Color</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={getProp("backgroundColor", "#ffffff")}
+                    onChange={(e) => updateProp("backgroundColor", e.target.value)}
+                    className="w-7 h-7 rounded border border-[#d1d1d6] cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={getProp("backgroundColor", "")}
+                    onChange={(e) => updateProp("backgroundColor", e.target.value)}
+                    className="flex-1 px-2 py-1.5 text-xs font-mono border border-[#d1d1d6] rounded-md bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                    placeholder="transparent"
+                  />
+                  {getProp("backgroundColor", "") && (
+                    <button
+                      onClick={() => updateProp("backgroundColor", "")}
+                      className="text-[10px] text-[#86868b] hover:text-[#1d1d1f]"
+                    >
+                      Clear
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -1332,10 +1423,10 @@ function PropertyPanel({
                 <label className="block text-[10px] text-[#86868b] mb-1 font-medium">Margin (Top/Bottom)</label>
                 <input
                   type="text"
-                  value={getProp("margin", "16px 0")}
+                  value={getProp("margin", "24px 0")}
                   onChange={(e) => updateProp("margin", e.target.value)}
                   className="w-full px-2 py-1.5 text-xs border border-[#d1d1d6] rounded-md bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
-                  placeholder="16px 0"
+                  placeholder="24px 0"
                 />
               </div>
             </div>
@@ -1910,7 +2001,7 @@ export default function Home() {
                       </div>
                       <button
                         onClick={() => setShowExportDialog(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-[#1d1d1f] text-white text-sm font-medium rounded-lg hover:bg-[#2d2d2f] transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors"
                       >
                         <Code className="h-4 w-4" />
                         Export Code
