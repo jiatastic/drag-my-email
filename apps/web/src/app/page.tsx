@@ -1711,8 +1711,37 @@ export default function Home() {
 
         <main className="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16">
           <section className="py-12 max-w-2xl relative overflow-visible">
-            {/* Heading with cursor dragging words into place */}
-            <div className="relative">
+            {/* Mobile: Simple fade-in animation */}
+            <div className="md:hidden">
+              <h1 className="text-2xl sm:text-3xl font-semibold text-[#14171a] leading-tight">
+                <motion.span
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.1 }}
+                >
+                  Build emails like you're playing with{" "}
+                </motion.span>
+                <motion.span
+                  className="text-primary font-bold inline-block"
+                  initial={{ opacity: 0, scale: 0.8, rotate: -5 }}
+                  animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                  transition={{ duration: 0.5, delay: 0.4, type: "spring", stiffness: 200 }}
+                >
+                  LEGO
+                </motion.span>
+                <motion.span
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.6 }}
+                >
+                  {" "}
+                  <span className="text-primary font-bold">blocks</span>
+                </motion.span>
+              </h1>
+            </div>
+
+            {/* Desktop: Heading with cursor dragging words into place */}
+            <div className="hidden md:block relative">
               {/* Animated drag cursor - synced with word movements */}
               <motion.div
                 className="absolute pointer-events-none z-50"
@@ -1846,8 +1875,18 @@ export default function Home() {
             </h1>
             </div>
             
+            {/* Mobile subtitle - shorter delay */}
             <motion.p 
-              className="text-[#657786] mt-4 text-base"
+              className="md:hidden text-[#657786] mt-4 text-sm sm:text-base"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.8, duration: 0.5 }}
+            >
+              Drag, drop, and export production-ready emails with a live playground.
+            </motion.p>
+            {/* Desktop subtitle - longer delay to sync with drag animation */}
+            <motion.p 
+              className="hidden md:block text-[#657786] mt-4 text-base"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 5.5, duration: 0.5 }}
