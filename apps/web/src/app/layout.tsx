@@ -37,6 +37,13 @@ export default function RootLayout({
       </head>
       <body className="bg-background text-foreground font-sans antialiased min-h-screen">
         {children}
+        <Script
+          defer
+          data-website-id="dfid_m8dwHWeP5mvM2qdE7U8RQ"
+          data-domain="drag.email"
+          src="https://datafa.st/js/script.js"
+          strategy="afterInteractive"
+        />
       </body>
     </html>
   );
