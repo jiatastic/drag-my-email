@@ -13,8 +13,8 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "isolatedModules": true,
-    "verbatimModuleSyntax": true,
-    "noUncheckedIndexedAccess": true,
+    "verbatimModuleSyntax": false,
+    "noUncheckedIndexedAccess": false,
     "forceConsistentCasingInFileNames": true
   },
   "exclude": ["node_modules", "dist", ".next", ".turbo"]

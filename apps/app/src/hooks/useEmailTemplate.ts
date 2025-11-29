@@ -1,6 +1,5 @@
 import { useState, useCallback } from "react";
-import { EmailComponent, EmailGlobalStyles } from "@/types";
-import { supabase } from "@/lib/supabase";
+import type { EmailComponent, EmailGlobalStyles } from "@/types";
 
 // Default global styles for emails
 const defaultGlobalStyles: EmailGlobalStyles = {
@@ -74,6 +73,7 @@ function findParentOfComponent(
 ): { parent: EmailComponent | null; index: number } | null {
   for (let i = 0; i < components.length; i++) {
     const comp = components[i];
+    if (!comp) continue;
     if (comp.id === id) {
       return { parent, index: i };
     }

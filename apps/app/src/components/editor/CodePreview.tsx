@@ -1,6 +1,6 @@
 "use client";
 
-import { EmailComponent, TailwindConfig, EmailGlobalStyles } from "@/types";
+import type { EmailComponent, TailwindConfig, EmailGlobalStyles } from "@/types";
 import { generateFullEmailJSX } from "@/lib/email-renderer";
 import { Tabs, TabsContent, TabsList, TabsTrigger, ScrollArea, Button } from "@react-email-builder/ui";
 import { Copy, Check } from "lucide-react";

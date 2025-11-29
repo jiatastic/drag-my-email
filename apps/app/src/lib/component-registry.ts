@@ -1,4 +1,4 @@
-import { ComponentMetadata } from "@/types";
+import type { ComponentMetadata } from "@/types";
 import {
   Type,
   Image as ImageIcon,
@@ -530,8 +530,9 @@ export const getComponentsByCategory = () => {
   };
 
   Object.values(componentRegistry).forEach((component) => {
-    if (categories[component.category]) {
-    categories[component.category].push(component);
+    const categoryArray = categories[component.category];
+    if (categoryArray) {
+      categoryArray.push(component);
     }
   });
 

@@ -689,7 +689,7 @@ function PropertyPanel({
               {(component.type === "heading" || component.type === "text" || component.type === "link" || component.type === "button" || component.type === "code") && (
                 <div>
                   <label className="block text-[10px] text-[#86868b] mb-1 font-medium">
-                    {component.type === "code" ? "Code" : component.type === "footer" ? "Company" : "Text"}
+                    {component.type === "code" ? "Code" : "Text"}
                   </label>
                   {component.type === "code" ? (
                     <textarea
@@ -1651,6 +1651,7 @@ export default function Home() {
         if (oldIndex === -1) return items;
         const newItems = [...items];
         const [removed] = newItems.splice(oldIndex, 1);
+        if (!removed) return items;
         // Adjust index if removing before the target
         const adjustedIndex = oldIndex < newIndex ? newIndex - 1 : newIndex;
         newItems.splice(adjustedIndex, 0, removed);
