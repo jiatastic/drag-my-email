@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 export async function POST(request: Request) {
   try {
     const { email } = await request.json();
@@ -10,6 +8,9 @@ export async function POST(request: Request) {
     if (!email) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
+
+    // Create Resend instance at runtime, not build time
+    const resend = new Resend(process.env.RESEND_API_KEY);
 
     const { data, error } = await resend.contacts.create({
       email,
