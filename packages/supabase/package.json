@@ -1,0 +1,22 @@
+{
+  "name": "@react-email-builder/supabase",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts",
+    "./queries": "./src/queries.ts",
+    "./mutations": "./src/mutations.ts"
+  },
+  "scripts": {
+    "lint": "biome check src/"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.48.0"
+  },
+  "devDependencies": {
+    "@react-email-builder/typescript-config": "workspace:*",
+    "typescript": "^5.7.2"
+  }
+}
+

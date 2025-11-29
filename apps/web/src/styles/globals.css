@@ -1,0 +1,329 @@
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* drag.email Theme - Primary: #007aff */
+@layer base {
+  :root {
+    /* Light Mode */
+    --background: #ffffff;
+    --foreground: #14171a;
+    --card: #f5f8fa;
+    --card-foreground: #14171a;
+    --popover: #ffffff;
+    --popover-foreground: #14171a;
+    --primary: #007aff;
+    --primary-foreground: #ffffff;
+    --secondary: #14171a;
+    --secondary-foreground: #ffffff;
+    --muted: #e1e8ed;
+    --muted-foreground: #657786;
+    --accent: #e8f5fd;
+    --accent-foreground: #1e9df1;
+    --destructive: #e0245e;
+    --destructive-foreground: #ffffff;
+    --border: #e1e8ed;
+    --input: #e1e8ed;
+    --ring: #007aff;
+    
+    /* Charts */
+    --chart-1: #1e9df1;
+    --chart-2: #17bf63;
+    --chart-3: #ffad1f;
+    --chart-4: #f45d22;
+    --chart-5: #e0245e;
+    
+    /* Sidebar */
+    --sidebar: #f5f8fa;
+    --sidebar-foreground: #14171a;
+    --sidebar-primary: #1e9df1;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #e8f5fd;
+    --sidebar-accent-foreground: #1e9df1;
+    --sidebar-border: #e1e8ed;
+    --sidebar-ring: #1e9df1;
+    
+    /* Border Radius */
+    --radius: 0.75rem;
+    
+    /* Fonts - Twitter Theme */
+    --font-sans: "Open Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-serif: "Georgia", serif;
+    --font-mono: "Menlo", monospace;
+  }
+
+  .dark {
+    /* Dark Mode */
+    --background: #15202b;
+    --foreground: #ffffff;
+    --card: #192734;
+    --card-foreground: #ffffff;
+    --popover: #15202b;
+    --popover-foreground: #ffffff;
+    --primary: #007aff;
+    --primary-foreground: #ffffff;
+    --secondary: #8899a6;
+    --secondary-foreground: #15202b;
+    --muted: #22303c;
+    --muted-foreground: #8899a6;
+    --accent: #1a3a4a;
+    --accent-foreground: #1e9df1;
+    --destructive: #e0245e;
+    --destructive-foreground: #ffffff;
+    --border: #38444d;
+    --input: #38444d;
+    --ring: #007aff;
+    
+    /* Charts - Dark */
+    --chart-1: #1e9df1;
+    --chart-2: #17bf63;
+    --chart-3: #ffad1f;
+    --chart-4: #f45d22;
+    --chart-5: #e0245e;
+    
+    /* Sidebar - Dark */
+    --sidebar: #192734;
+    --sidebar-foreground: #ffffff;
+    --sidebar-primary: #1e9df1;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #1a3a4a;
+    --sidebar-accent-foreground: #1e9df1;
+    --sidebar-border: #38444d;
+    --sidebar-ring: #1e9df1;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+  }
+}
+
+/* Email Editor Specific Styles */
+@layer components {
+  /* Droppable zone indicators */
+  .drop-zone {
+    @apply transition-all duration-200;
+  }
+  
+  .drop-zone-active {
+    @apply ring-2 ring-primary ring-offset-2;
+    ring-style: dashed;
+    background-color: rgba(30, 157, 241, 0.05);
+  }
+  
+  .drop-zone-hover {
+    background-color: rgba(30, 157, 241, 0.1);
+  }
+
+  /* Component selection in edit mode */
+  .email-component {
+    @apply relative transition-all duration-150;
+  }
+  
+  .email-component:hover {
+    @apply outline outline-2 outline-offset-1;
+    outline-color: rgba(30, 157, 241, 0.3);
+  }
+  
+  .email-component.selected {
+    @apply outline outline-2 outline-primary outline-offset-1;
+  }
+  
+  /* Drag handle styling */
+  .drag-handle {
+    @apply cursor-grab;
+  }
+  
+  .drag-handle:active {
+    @apply cursor-grabbing;
+  }
+  
+  /* Nested drop zones for layouts */
+  .layout-drop-zone {
+    @apply min-h-[60px] border-2 border-dashed border-transparent transition-colors;
+  }
+  
+  .layout-drop-zone.can-drop {
+    border-color: rgba(30, 157, 241, 0.5);
+    background-color: rgba(30, 157, 241, 0.05);
+  }
+  
+  .layout-drop-zone.is-over {
+    @apply border-primary;
+    background-color: rgba(30, 157, 241, 0.1);
+  }
+  
+  /* Empty layout placeholder */
+  .layout-empty {
+    @apply flex items-center justify-center text-gray-400 text-xs py-4;
+  }
+}
+
+/* Fun animations for Play with header */
+@keyframes bounce-delayed {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(0, 122, 255, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(0, 122, 255, 0);
+  }
+}
+
+.animate-bounce-delayed-1 {
+  animation: bounce-delayed 2s ease-in-out infinite;
+  animation-delay: 0s;
+}
+
+.animate-bounce-delayed-2 {
+  animation: bounce-delayed 2s ease-in-out infinite;
+  animation-delay: 0.2s;
+}
+
+.animate-bounce-delayed-3 {
+  animation: bounce-delayed 2s ease-in-out infinite;
+  animation-delay: 0.4s;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Elegant background pattern for builder section */
+.builder-section-bg {
+  background-color: #fafbfc;
+  background-image: 
+    radial-gradient(circle at 2px 2px, rgba(0, 122, 255, 0.06) 1px, transparent 0),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.8) 0%, rgba(250, 251, 252, 0.4) 100%);
+  background-size: 32px 32px, 100% 100%;
+  background-position: 0 0, 0 0;
+  position: relative;
+}
+
+.builder-section-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: 
+    radial-gradient(ellipse at top left, rgba(0, 122, 255, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at bottom right, rgba(0, 122, 255, 0.04) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Van Gogh-inspired painting background */
+.landscape-bg {
+  background: 
+    /* Sky - deep blues with swirling patterns */
+    radial-gradient(ellipse 120% 80% at 50% 20%, #1a237e 0%, #283593 15%, #3949ab 30%, #5c6bc0 45%, transparent 60%),
+    radial-gradient(ellipse 100% 60% at 30% 15%, #0d47a1 0%, #1565c0 20%, #1976d2 35%, transparent 50%),
+    radial-gradient(ellipse 90% 70% at 70% 25%, #0277bd 0%, #0288d1 25%, #039be5 40%, transparent 55%),
+    /* Swirling sky patterns */
+    conic-gradient(from 45deg at 50% 30%, 
+      rgba(255, 235, 59, 0.3) 0deg,
+      rgba(255, 193, 7, 0.2) 60deg,
+      rgba(255, 152, 0, 0.15) 120deg,
+      rgba(33, 150, 243, 0.4) 180deg,
+      rgba(25, 118, 210, 0.5) 240deg,
+      rgba(13, 71, 161, 0.6) 300deg,
+      rgba(255, 235, 59, 0.3) 360deg
+    ),
+    /* Base sky gradient */
+    linear-gradient(to bottom,
+      #0d47a1 0%,
+      #1565c0 20%,
+      #1976d2 35%,
+      #42a5f5 50%,
+      #64b5f6 60%,
+      #90caf9 70%
+    ),
+    /* Wheat fields - golden yellows and greens */
+    linear-gradient(to bottom,
+      transparent 55%,
+      #fdd835 60%,
+      #fbc02d 65%,
+      #f9a825 70%,
+      #f57f17 75%,
+      #827717 80%,
+      #558b2f 85%,
+      #33691e 90%,
+      #1b5e20 95%,
+      #0d2818 100%
+    );
+  background-size: 100% 100%, 120% 100%, 110% 100%, 150% 150%, 100% 100%, 100% 100%;
+  background-position: center, -10% center, 10% center, center, center, center;
+  position: relative;
+  overflow: hidden;
+}
+
+.landscape-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  /* Swirling brushstroke patterns */
+  background: 
+    repeating-conic-gradient(from 0deg at 40% 30%, 
+      transparent 0deg,
+      rgba(255, 235, 59, 0.15) 5deg,
+      transparent 10deg,
+      rgba(255, 193, 7, 0.1) 15deg,
+      transparent 20deg
+    ),
+    repeating-conic-gradient(from 180deg at 60% 25%, 
+      transparent 0deg,
+      rgba(33, 150, 243, 0.2) 8deg,
+      transparent 16deg,
+      rgba(25, 118, 210, 0.15) 24deg,
+      transparent 32deg
+    ),
+    /* Textured brushstrokes */
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 10px,
+      rgba(255, 255, 255, 0.03) 10px,
+      rgba(255, 255, 255, 0.03) 11px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 10px,
+      rgba(0, 0, 0, 0.02) 10px,
+      rgba(0, 0, 0, 0.02) 11px
+    );
+  background-size: 200% 200%, 180% 180%, 30px 30px, 25px 25px;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.8;
+}
+
+.landscape-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  /* Paint texture - impasto effect */
+  background-image: 
+    radial-gradient(circle at 20% 30%, rgba(255, 235, 59, 0.1) 0%, transparent 2px),
+    radial-gradient(circle at 50% 40%, rgba(33, 150, 243, 0.08) 0%, transparent 3px),
+    radial-gradient(circle at 80% 35%, rgba(255, 193, 7, 0.1) 0%, transparent 2px),
+    radial-gradient(circle at 30% 60%, rgba(76, 175, 80, 0.1) 0%, transparent 2px),
+    radial-gradient(circle at 70% 65%, rgba(139, 195, 74, 0.1) 0%, transparent 3px);
+  background-size: 150px 150px, 200px 200px, 180px 180px, 160px 160px, 190px 190px;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0.6;
+}

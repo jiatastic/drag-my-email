@@ -1,0 +1,13 @@
+{
+  "name": "@react-email-builder/analytics",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "devDependencies": {
+    "@react-email-builder/typescript-config": "workspace:*",
+    "typescript": "^5.7.2"
+  }
+}
+

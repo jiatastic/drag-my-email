@@ -1,0 +1,35 @@
+import type { Metadata } from "next";
+import Script from "next/script";
+import "@/styles/globals.css";
+
+export const metadata: Metadata = {
+  title: "React Email Builder",
+  description: "Drag and drop email builder with React Email components",
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {process.env.NODE_ENV === "development" && (
+          <Script
+            src="//unpkg.com/react-grab/dist/index.global.js"
+            crossOrigin="anonymous"
+            strategy="beforeInteractive"
+          />
+        )}
+        {/* rest of your scripts go under */}
+      </head>
+      <body className="min-h-screen bg-background font-sans antialiased">
+        {children}
+      </body>
+    </html>
+  );
+}
+

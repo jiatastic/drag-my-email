@@ -1,0 +1,106 @@
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Twitter Theme - Primary: #1e9df1 */
+@layer base {
+  :root {
+    /* Light Mode */
+    --background: #ffffff;
+    --foreground: #14171a;
+    --card: #f5f8fa;
+    --card-foreground: #14171a;
+    --popover: #ffffff;
+    --popover-foreground: #14171a;
+    --primary: #1e9df1;
+    --primary-foreground: #ffffff;
+    --secondary: #14171a;
+    --secondary-foreground: #ffffff;
+    --muted: #e1e8ed;
+    --muted-foreground: #657786;
+    --accent: #e8f5fd;
+    --accent-foreground: #1e9df1;
+    --destructive: #e0245e;
+    --destructive-foreground: #ffffff;
+    --border: #e1e8ed;
+    --input: #e1e8ed;
+    --ring: #1e9df1;
+    
+    /* Charts */
+    --chart-1: #1e9df1;
+    --chart-2: #17bf63;
+    --chart-3: #ffad1f;
+    --chart-4: #f45d22;
+    --chart-5: #e0245e;
+    
+    /* Sidebar */
+    --sidebar: #f5f8fa;
+    --sidebar-foreground: #14171a;
+    --sidebar-primary: #1e9df1;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #e8f5fd;
+    --sidebar-accent-foreground: #1e9df1;
+    --sidebar-border: #e1e8ed;
+    --sidebar-ring: #1e9df1;
+    
+    /* Border Radius */
+    --radius: 0.75rem;
+    
+    /* Fonts - Twitter Theme */
+    --font-sans: "Open Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-serif: "Georgia", serif;
+    --font-mono: "Menlo", monospace;
+  }
+
+  .dark {
+    /* Dark Mode */
+    --background: #15202b;
+    --foreground: #ffffff;
+    --card: #192734;
+    --card-foreground: #ffffff;
+    --popover: #15202b;
+    --popover-foreground: #ffffff;
+    --primary: #1e9df1;
+    --primary-foreground: #ffffff;
+    --secondary: #8899a6;
+    --secondary-foreground: #15202b;
+    --muted: #22303c;
+    --muted-foreground: #8899a6;
+    --accent: #1a3a4a;
+    --accent-foreground: #1e9df1;
+    --destructive: #e0245e;
+    --destructive-foreground: #ffffff;
+    --border: #38444d;
+    --input: #38444d;
+    --ring: #1e9df1;
+    
+    /* Charts - Dark */
+    --chart-1: #1e9df1;
+    --chart-2: #17bf63;
+    --chart-3: #ffad1f;
+    --chart-4: #f45d22;
+    --chart-5: #e0245e;
+    
+    /* Sidebar - Dark */
+    --sidebar: #192734;
+    --sidebar-foreground: #ffffff;
+    --sidebar-primary: #1e9df1;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #1a3a4a;
+    --sidebar-accent-foreground: #1e9df1;
+    --sidebar-border: #38444d;
+    --sidebar-ring: #1e9df1;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+  }
+}
+
