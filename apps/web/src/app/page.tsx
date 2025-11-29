@@ -44,6 +44,9 @@ import {
   Settings2,
   X,
   Sparkles,
+  Layers,
+  Eye,
+  SlidersHorizontal,
 } from "lucide-react";
 
 interface EmailComponent {
@@ -1540,6 +1543,7 @@ export default function Home() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draggedType, setDraggedType] = useState<string | null>(null);
+  const [mobileTab, setMobileTab] = useState<"components" | "preview" | "properties">("preview");
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
   const { setNodeRef, isOver } = useDroppable({ id: "canvas" });
@@ -1705,7 +1709,7 @@ export default function Home() {
         {/* Spacer for fixed navbar */}
         <div className="h-20"></div>
 
-        <main className="max-w-7xl mx-auto px-6 md:px-12 lg:px-16">
+        <main className="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16">
           <section className="py-12 max-w-2xl relative overflow-visible">
             {/* Heading with cursor dragging words into place */}
             <div className="relative">
@@ -1903,10 +1907,47 @@ export default function Home() {
               <ChevronDown className="h-4 w-4 text-white/80 animate-bounce drop-shadow-lg" />
             </div>
             
-            <div className="h-[calc(100vh-200px)] min-h-[600px] bg-[#f5f5f7]/80 backdrop-blur-sm border border-[#e5e5e7] rounded-xl overflow-hidden shadow-sm relative z-10">
-              <div className="h-full flex">
+            <div className="h-[calc(100vh-200px)] min-h-[500px] md:min-h-[600px] bg-[#f5f5f7]/80 backdrop-blur-sm border border-[#e5e5e7] rounded-xl overflow-hidden shadow-sm relative z-10">
+              {/* Mobile Tab Bar */}
+              <div className="md:hidden flex border-b border-[#e5e5e7] bg-white">
+                <button
+                  onClick={() => setMobileTab("components")}
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 text-xs font-medium transition-colors ${
+                    mobileTab === "components" 
+                      ? "text-primary border-b-2 border-primary bg-primary/5" 
+                      : "text-[#86868b] hover:text-[#1d1d1f]"
+                  }`}
+                >
+                  <Layers className="h-4 w-4" />
+                  Components
+                </button>
+                <button
+                  onClick={() => setMobileTab("preview")}
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 text-xs font-medium transition-colors ${
+                    mobileTab === "preview" 
+                      ? "text-primary border-b-2 border-primary bg-primary/5" 
+                      : "text-[#86868b] hover:text-[#1d1d1f]"
+                  }`}
+                >
+                  <Eye className="h-4 w-4" />
+                  Preview
+                </button>
+                <button
+                  onClick={() => setMobileTab("properties")}
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 text-xs font-medium transition-colors ${
+                    mobileTab === "properties" 
+                      ? "text-primary border-b-2 border-primary bg-primary/5" 
+                      : "text-[#86868b] hover:text-[#1d1d1f]"
+                  }`}
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
+                  Properties
+                </button>
+              </div>
+
+              <div className="h-[calc(100%-49px)] md:h-full flex">
                 {/* Left Sidebar - Component Palette */}
-                <div className="w-[18%] min-w-[200px] border-r border-[#e5e5e7] bg-white flex flex-col">
+                <div className={`${mobileTab === "components" ? "flex" : "hidden"} md:flex w-full md:w-[18%] md:min-w-[200px] border-r border-[#e5e5e7] bg-white flex-col`}>
                   <div className="p-4 border-b border-[#e5e5e7] bg-[#fafafa]">
                     <h2 className="text-sm font-semibold text-[#1d1d1f]">Components</h2>
                     <p className="text-[11px] text-[#86868b] mt-0.5">
@@ -1993,7 +2034,7 @@ export default function Home() {
                 </div>
 
                 {/* Main Content Area */}
-                <div className="flex-1 flex flex-col bg-[#f5f5f7]">
+                <div className={`${mobileTab === "preview" ? "flex" : "hidden"} md:flex flex-1 flex-col bg-[#f5f5f7]`}>
                   {/* Header */}
                   <div className="border-b border-[#e5e5e7] bg-white">
                     <div className="p-4 flex items-center justify-between">
@@ -2097,7 +2138,7 @@ export default function Home() {
                 </div>
 
                 {/* Right Sidebar - Properties */}
-                <div className="w-[22%] min-w-[240px] border-l border-[#e5e5e7] bg-white flex flex-col">
+                <div className={`${mobileTab === "properties" ? "flex" : "hidden"} md:flex w-full md:w-[22%] md:min-w-[240px] border-l border-[#e5e5e7] bg-white flex-col`}>
                   <div className="p-3 border-b border-[#e5e5e7] bg-[#fafafa]">
                     <div className="flex items-center gap-2">
                       <Settings2 className="h-3.5 w-3.5 text-[#86868b]" />
