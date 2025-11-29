@@ -10,6 +10,7 @@ import {
   useSensors,
   useDroppable,
   useDraggable,
+  closestCenter,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -1675,7 +1676,7 @@ export default function Home() {
   };
 
   return (
-    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="bg-white">
         {/* Floating pill navbar */}
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-3xl px-4">
