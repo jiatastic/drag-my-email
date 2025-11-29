@@ -96,6 +96,7 @@ function moveComponentInTree(
   if (rootIndex !== -1) {
     const newComponents = [...components];
     const [moved] = newComponents.splice(rootIndex, 1);
+    if (!moved) return components;
     newComponents.splice(newIndex, 0, moved);
     return newComponents;
   }
@@ -107,6 +108,7 @@ function moveComponentInTree(
       if (childIndex !== -1) {
         const newChildren = [...comp.children];
         const [moved] = newChildren.splice(childIndex, 1);
+        if (!moved) return comp;
         newChildren.splice(newIndex, 0, moved);
         return { ...comp, children: newChildren };
       }
@@ -147,6 +149,7 @@ export function useEmailTemplate() {
     setComponents((prev) => {
       const newComponents = [...prev];
       const [moved] = newComponents.splice(fromIndex, 1);
+      if (!moved) return prev;
       newComponents.splice(toIndex, 0, moved);
       return newComponents;
     });

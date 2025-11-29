@@ -449,12 +449,14 @@ function SortableEmailComponent({
           </div>
         );
       case "footer":
+        const footerAlign = props.textAlign || "center";
+        const footerJustify = footerAlign === "left" ? "flex-start" : footerAlign === "right" ? "flex-end" : "center";
         return (
           <div style={{ 
             marginTop: "32px",
             paddingTop: "24px",
             borderTop: `1px solid ${props.borderColor || "#e5e5e5"}`,
-            textAlign: "center",
+            textAlign: footerAlign as "left" | "center" | "right",
           }}>
             {/* Company name */}
             <p style={{ 
@@ -479,7 +481,7 @@ function SortableEmailComponent({
             {/* Links */}
             <div style={{ 
               display: "flex", 
-              justifyContent: "center", 
+              justifyContent: footerJustify,
               gap: "16px",
               flexWrap: "wrap",
             }}>

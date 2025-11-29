@@ -234,6 +234,7 @@ export function EmailBuilder() {
         setComponents((prev) => {
           const newComponents = [...prev];
           const [moved] = newComponents.splice(oldIndex, 1);
+          if (!moved) return prev;
           // Adjust index if removing before the target
           const adjustedIndex = oldIndex < newIndex ? newIndex - 1 : newIndex;
           newComponents.splice(adjustedIndex, 0, moved);
