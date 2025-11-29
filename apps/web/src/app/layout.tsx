@@ -3,8 +3,20 @@ import Script from "next/script";
 import "@/styles/globals.css";
 
 export const metadata: Metadata = {
-  title: "drag.email — Build Emails with React",
-  description: "Join the waitlist and try the interactive React Email playground.",
+  title: "drag.email - drag & drop email like lego blocks",
+  description: "Build beautiful, responsive emails with a visual drag-and-drop editor. Export clean React Email code instantly. No design skills required.",
+  keywords: ["email builder", "react email", "drag and drop", "email templates", "responsive emails", "email design"],
+  openGraph: {
+    title: "drag.email - drag & drop email like lego blocks",
+    description: "Build beautiful, responsive emails with a visual drag-and-drop editor. Export clean React Email code & html instantly.",
+    type: "website",
+    url: "https://drag.email",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "drag.email - drag & drop email like lego blocks",
+      description: "Build beautiful, responsive emails with a visual drag-and-drop editor. Export clean React Email code & html instantly.",
+    },
 };
 
 export default function RootLayout({
