@@ -1705,7 +1705,7 @@ export default function Home() {
         {/* Spacer for fixed navbar */}
         <div className="h-20"></div>
 
-        <main className="px-6 md:px-12">
+        <main className="max-w-7xl mx-auto px-6 md:px-12 lg:px-16">
           <section className="py-12 max-w-2xl relative overflow-visible">
             {/* Heading with cursor dragging words into place */}
             <div className="relative">
@@ -1888,7 +1888,7 @@ export default function Home() {
             )}
           </section>
 
-          <section className="pt-8 pb-12 px-6 md:px-12 builder-section-bg relative landscape-bg">
+          <section className="pt-8 pb-12 px-4 md:px-8 lg:px-12 builder-section-bg relative landscape-bg">
             {/* Subtle overlay to ensure readability */}
             <div className="absolute inset-0 bg-white/20 pointer-events-none z-0"></div>
             {/* Fun "Play with" Header */}
