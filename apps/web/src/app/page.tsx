@@ -47,6 +47,9 @@ import {
   Layers,
   Eye,
   SlidersHorizontal,
+  ListOrdered,
+  LayoutGrid,
+  Megaphone,
 } from "lucide-react";
 
 interface EmailComponent {
@@ -63,6 +66,60 @@ interface TemplateConfig {
 }
 
 const templates: TemplateConfig[] = [
+  {
+    id: "amazon-review",
+    name: "Amazon Review",
+    emoji: "⭐",
+    components: [
+      // Orange top border bar (using text with bg)
+      { id: "ar1", type: "text", props: { text: " ", fontSize: "4px", backgroundColor: "#FF9900", padding: "2px 0", marginBottom: "0" } },
+      // Amazon Logo
+      { id: "ar2", type: "image", props: { src: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/Amazon_logo.svg/200px-Amazon_logo.svg.png", alt: "Amazon Logo", width: 120, height: 36, margin: "24px auto", align: "center" } },
+      // Main heading
+      { id: "ar3", type: "heading", props: { text: "Your opinion is important!", fontSize: "32px", fontWeight: "400", color: "#232f3e", textAlign: "center", marginBottom: "16px" } },
+      // Description text
+      { id: "ar4", type: "text", props: { text: "Hey there! Do you have a moment? We would like to know if everything went well for you. Take a moment to review your most recent purchases.", fontSize: "14px", color: "#333333", textAlign: "center", marginBottom: "24px", padding: "0 20px" } },
+      // Product section with gallery
+      { id: "ar5", type: "gallery", props: {
+        sectionTitle: "Your Recent Purchase",
+        headline: "How was your experience?",
+        description: "Your reviews help other customers make informed decisions. Share your thoughts about this product.",
+        titleColor: "#FF9900",
+        headlineColor: "#232f3e",
+        descriptionColor: "#666666",
+        images: [
+          { src: "https://react.email/static/stagg-eletric-kettle.jpg", alt: "Product Image", href: "#" },
+        ],
+        columns: 1,
+        imageHeight: 280,
+        borderRadius: "8px",
+        gap: "16px"
+      }},
+      // Star rating section (using numbered list as "steps")
+      { id: "ar6", type: "numbered-list", props: {
+        items: [
+          { title: "Rate this product", description: "Click the stars to rate your experience" },
+          { title: "Write your review", description: "Share what you liked or didn't like" },
+          { title: "Help others decide", description: "Your review will be posted publicly" }
+        ],
+        numberBgColor: "#FF9900"
+      }},
+      // CTA Banner
+      { id: "ar7", type: "button", props: { text: "📝 Write a Review", color: "#008296", textColor: "#ffffff", padding: "16px 24px", borderRadius: "4px", fontSize: "16px", fontWeight: "600", width: "100%" } },
+      // View more link
+      { id: "ar8", type: "link", props: { text: "View more products to review →", href: "#", fontSize: "14px", color: "#008296", textAlign: "center", marginTop: "16px" } },
+      // Divider
+      { id: "ar9", type: "divider", props: { borderColor: "#cccccc", margin: "24px 0" } },
+      // Social icons
+      { id: "ar10", type: "social", props: {} },
+      // Footer disclaimer
+      { id: "ar11", type: "text", props: { text: "Customer reviews must adhere to the Community Guidelines.", fontSize: "10px", color: "#666666", textAlign: "center", marginBottom: "8px" } },
+      { id: "ar12", type: "text", props: { text: "We hope this message was helpful. If you prefer not to receive this type of communication, click here to unsubscribe.", fontSize: "10px", color: "#666666", textAlign: "center", marginBottom: "8px" } },
+      { id: "ar13", type: "text", props: { text: "© 2024 Your Company, Inc. All rights reserved.", fontSize: "10px", color: "#666666", textAlign: "center", marginBottom: "8px" } },
+      // Footer
+      { id: "ar14", type: "footer", props: { company: "Your Company", address: "123 Main Street, San Francisco, CA 94102", unsubscribeUrl: "#", preferencesUrl: "#", privacyUrl: "#" } },
+    ],
+  },
   {
     id: "aws",
     name: "AWS Verification",
@@ -102,6 +159,9 @@ const palette: { id: string; label: string; icon: ElementType }[] = [
   { id: "link", label: "Link", icon: Link2 },
   { id: "image", label: "Image", icon: Image },
   { id: "divider", label: "Divider", icon: Minus },
+  { id: "numbered-list", label: "Numbered List", icon: ListOrdered },
+  { id: "gallery", label: "Gallery", icon: LayoutGrid },
+  { id: "marketing", label: "Marketing", icon: Megaphone },
   { id: "code", label: "Code", icon: Square },
   { id: "code-inline", label: "Code inline", icon: Code },
   { id: "social", label: "Social icons", icon: Share2 },
@@ -330,16 +390,24 @@ function SortableEmailComponent({
             }}
             style={{ 
               ...componentStyle,
+              color: props.color || "#1e9df1",
+              fontSize: props.fontSize || "14px",
+              fontWeight: props.fontWeight ? parseInt(props.fontWeight) : 400,
               textDecoration: props.textDecoration || "underline", 
               display: props.display || "inline-block",
+              backgroundColor: props.backgroundColor || "transparent",
+              padding: props.padding || "0",
+              borderRadius: props.borderRadius || "0",
               cursor: isSelected ? "text" : "pointer",
-              marginBottom: props.marginBottom !== undefined ? props.marginBottom : componentStyle.margin.split(" ")[2] || "12px",
+              marginBottom: props.marginBottom !== undefined ? props.marginBottom : "12px",
+              marginTop: props.marginTop || "0",
             }}
           >
             {props.text || "Visit link"}
           </a>
         );
       case "button":
+        const buttonWidth = props.width || "auto";
         return (
           <a
             href={props.href || "#"}
@@ -349,7 +417,9 @@ function SortableEmailComponent({
             }}
             style={{
               ...componentStyle,
-              display: "inline-block",
+              display: buttonWidth === "100%" ? "block" : "inline-block",
+              width: buttonWidth,
+              boxSizing: "border-box" as const,
               padding: props.padding || "12px 20px",
               borderRadius: props.borderRadius || "999px",
               backgroundColor: props.color || "#14171a",
@@ -429,26 +499,263 @@ function SortableEmailComponent({
             Run <code style={{ background: "#f1f5f9", padding: "2px 6px", borderRadius: "4px" }}>{props.code || "bun run dev"}</code> to try it.
           </p>
         );
-      case "social":
+      case "numbered-list":
+        const listItems = props.items || [
+          { title: "First step", description: "Description for the first step" },
+          { title: "Second step", description: "Description for the second step" },
+          { title: "Third step", description: "Description for the third step" },
+        ];
+        const numberBgColor = props.numberBgColor || "#4f46e5";
         return (
-          <div style={{ display: "flex", gap: "12px", margin: "12px 0" }}>
-            {["twitter", "github", "linkedin"].map((net) => (
-              <span
-                key={net}
+          <div style={{ marginBottom: "16px" }}>
+            {listItems.map((item: { title: string; description: string }, idx: number) => (
+              <div key={idx} style={{ display: "flex", gap: "16px", marginBottom: "24px" }}>
+                <div
+                  style={{
+                    width: "24px",
+                    height: "24px",
+                    borderRadius: "50%",
+                    backgroundColor: numberBgColor,
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    flexShrink: 0,
+                  }}
+                >
+                  {idx + 1}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <h3 style={{ 
+                    margin: "0 0 4px 0", 
+                    fontSize: "16px", 
+                    fontWeight: 600, 
+                    color: "#1a1a1a",
+                    lineHeight: "24px",
+                  }}>
+                    {item.title}
+                  </h3>
+                  <p style={{ 
+                    margin: 0, 
+                    fontSize: "14px", 
+                    color: "#6b7280",
+                    lineHeight: "20px",
+                  }}>
+                    {item.description}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      case "gallery":
+        const galleryImages = props.images || [
+          { src: "https://react.email/static/stagg-eletric-kettle.jpg", alt: "Stagg Electric Kettle", href: "#" },
+          { src: "https://react.email/static/ode-grinder.jpg", alt: "Ode Grinder", href: "#" },
+          { src: "https://react.email/static/atmos-vacuum-canister.jpg", alt: "Atmos Vacuum Canister", href: "#" },
+          { src: "https://react.email/static/clyde-electric-kettle.jpg", alt: "Clyde Electric Kettle", href: "#" },
+        ];
+        const galleryCols = props.columns || 2;
+        const galleryRows: typeof galleryImages[] = [];
+        for (let i = 0; i < galleryImages.length; i += galleryCols) {
+          galleryRows.push(galleryImages.slice(i, i + galleryCols));
+        }
+        return (
+          <div style={{ margin: "16px 0" }}>
+            {/* Header */}
+            <div style={{ marginTop: "42px" }}>
+              <p style={{ 
+                margin: 0, 
+                fontWeight: 600, 
+                fontSize: "16px", 
+                lineHeight: "24px",
+                color: props.titleColor || "#4f46e5" 
+              }}>
+                {props.sectionTitle || "Our products"}
+              </p>
+              <p style={{ 
+                margin: "8px 0 0 0", 
+                fontWeight: 600, 
+                fontSize: "24px", 
+                lineHeight: "32px",
+                color: props.headlineColor || "#111827" 
+              }}>
+                {props.headline || "Elegant Style"}
+              </p>
+              <p style={{ 
+                margin: "8px 0 0 0", 
+                fontSize: "16px", 
+                lineHeight: "24px",
+                color: props.descriptionColor || "#6b7280" 
+              }}>
+                {props.description || "We spent two years in development to bring you the next generation of our award-winning home brew grinder."}
+              </p>
+            </div>
+            {/* Image Grid */}
+            <div style={{ marginTop: "16px" }}>
+              {galleryRows.map((row: { src: string; alt: string; href: string }[], rowIdx: number) => (
+                <div key={rowIdx} style={{ display: "flex", gap: props.gap || "16px", marginTop: "16px" }}>
+                  {row.map((img: { src: string; alt: string; href: string }, colIdx: number) => (
+                    <a key={colIdx} href={img.href || "#"} style={{ flex: 1, display: "block" }}>
+                      <img 
+                        src={img.src} 
+                        alt={img.alt} 
+                        style={{ 
+                          width: "100%", 
+                          height: props.imageHeight || 288,
+                          objectFit: "cover",
+                          borderRadius: props.borderRadius || "12px",
+                        }} 
+                      />
+                    </a>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      case "marketing":
+        const marketingProducts = props.products || [
+          {
+            imageUrl: "https://react.email/static/atmos-vacuum-canister.jpg",
+            altText: "Auto-Sealing Vacuum Canister",
+            title: "Auto-Sealing Vacuum Canister",
+            description: "A container that automatically creates an airtight seal with a button press.",
+            linkUrl: "#",
+          },
+          {
+            imageUrl: "https://react.email/static/vacuum-canister-clear-glass-bundle.jpg",
+            altText: "3-Pack Vacuum Containers",
+            title: "3-Pack Vacuum Containers",
+            description: "Keep your coffee fresher for longer with this set of high-performance vacuum containers.",
+            linkUrl: "#",
+          },
+        ];
+        return (
+          <div style={{ 
+            backgroundColor: props.containerBgColor || "#ffffff", 
+            borderRadius: props.borderRadius || "8px",
+            maxWidth: "900px",
+            margin: "0 auto",
+            overflow: "hidden",
+          }}>
+            {/* Header Row */}
+            <div style={{ 
+              backgroundColor: props.headerBgColor || "#292524",
+              display: "flex",
+              padding: "24px",
+            }}>
+              <div style={{ flex: 1, paddingLeft: "12px" }}>
+                <h1 style={{ 
+                  color: "#fff", 
+                  fontSize: "28px", 
+                  fontWeight: 700, 
+                  margin: "0 0 10px 0" 
+                }}>
+                  {props.headerTitle || "Coffee Storage"}
+                </h1>
+                <p style={{ 
+                  color: "rgba(255,255,255,0.6)", 
+                  fontSize: "14px", 
+                  lineHeight: "20px", 
+                  margin: 0 
+                }}>
+                  {props.headerDescription || "Keep your coffee fresher for longer with innovative technology."}
+                </p>
+                <a 
+                  href={props.headerLinkUrl || "#"} 
+                  style={{ 
+                    color: "rgba(255,255,255,0.8)", 
+                    display: "block",
+                    fontSize: "14px", 
+                    lineHeight: "20px",
+                    fontWeight: 600, 
+                    marginTop: "12px", 
+                    textDecoration: "none" 
+                  }}
+                >
+                  {props.headerLinkText || "Shop now →"}
+                </a>
+              </div>
+              <div style={{ width: "42%", height: "250px" }}>
+                <img 
+                  src={props.headerImage || "https://react.email/static/coffee-bean-storage.jpg"} 
+                  alt={props.headerImageAlt || "Coffee Bean Storage"}
+                  style={{ 
+                    width: "100%", 
+                    height: "100%", 
+                    objectFit: "cover",
+                    objectPosition: "center",
+                    borderRadius: "4px",
+                  }} 
+                />
+              </div>
+            </div>
+            {/* Products Row */}
+            <div style={{ padding: "24px", display: "flex", gap: "24px" }}>
+              {marketingProducts.map((product: { imageUrl: string; altText: string; title: string; description: string; linkUrl: string }, idx: number) => (
+                <div key={idx} style={{ flex: 1, maxWidth: "180px", margin: "0 auto" }}>
+                  <img 
+                    src={product.imageUrl} 
+                    alt={product.altText}
+                    style={{ 
+                      width: "100%", 
+                      borderRadius: "4px",
+                      marginBottom: "18px",
+                    }} 
+                  />
+                  <h2 style={{ 
+                    fontSize: "14px", 
+                    lineHeight: "20px", 
+                    fontWeight: 700, 
+                    margin: "0 0 8px 0" 
+                  }}>
+                    {product.title}
+                  </h2>
+                  <p style={{ 
+                    color: "#6b7280", 
+                    fontSize: "12px", 
+                    lineHeight: "20px", 
+                    margin: 0,
+                    paddingRight: "12px",
+                  }}>
+                    {product.description}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      case "social":
+        const socialSize = parseInt(props.iconSize) || 36;
+        const socialGap = props.gap || "12px";
+        const socialIconColor = props.iconColor || "#ffffff";
+        const socialNetworks = [
+          { id: "twitter", url: props.twitterUrl, bg: props.twitterColor || "#1DA1F2", icon: Twitter, show: props.showTwitter !== false },
+          { id: "github", url: props.githubUrl, bg: props.githubColor || "#333333", icon: Github, show: props.showGithub !== false },
+          { id: "linkedin", url: props.linkedinUrl, bg: props.linkedinColor || "#0A66C2", icon: Linkedin, show: props.showLinkedin !== false },
+        ].filter(n => n.show);
+        return (
+          <div style={{ display: "flex", gap: socialGap, margin: "12px 0", justifyContent: "center" }}>
+            {socialNetworks.map((net) => (
+              <a
+                key={net.id}
+                href={net.url || "#"}
                 style={{
-                  width: "36px",
-                  height: "36px",
+                  width: `${socialSize}px`,
+                  height: `${socialSize}px`,
                   borderRadius: "50%",
-                  background: net === "twitter" ? "#1DA1F2" : net === "github" ? "#333" : "#0A66C2",
+                  background: net.bg,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  textDecoration: "none",
                 }}
               >
-                {net === "twitter" && <Twitter className="h-4 w-4 text-white" />}
-                {net === "github" && <Github className="h-4 w-4 text-white" />}
-                {net === "linkedin" && <Linkedin className="h-4 w-4 text-white" />}
-              </span>
+                <net.icon style={{ width: socialSize * 0.45, height: socialSize * 0.45, color: socialIconColor }} />
+              </a>
             ))}
           </div>
         );
@@ -593,7 +900,19 @@ function getDefaultProps(type: string) {
     case "button":
       return { text: "Button", color: "#14171a" };
     case "link":
-      return { text: "Read more", href: "https://example.com" };
+      return { 
+        text: "Read more", 
+        href: "https://example.com",
+        color: "#1e9df1",
+        fontSize: "14px",
+        fontWeight: "400",
+        textDecoration: "underline",
+        backgroundColor: "transparent",
+        padding: "0",
+        borderRadius: "0",
+        marginTop: "0",
+        marginBottom: "12px",
+      };
     case "image":
       return { src: "https://placehold.co/480x200/e8f4fd/1d9bf0?text=Your+Image", alt: "Image" };
     case "divider":
@@ -610,8 +929,74 @@ function getDefaultProps(type: string) {
       };
     case "code-inline":
       return { code: "npm install" };
+    case "numbered-list":
+      return {
+        items: [
+          { title: "First step", description: "Description for the first step" },
+          { title: "Second step", description: "Description for the second step" },
+          { title: "Third step", description: "Description for the third step" },
+        ],
+        numberBgColor: "#4f46e5",
+      };
+    case "gallery":
+      return {
+        sectionTitle: "Our products",
+        headline: "Elegant Style",
+        description: "We spent two years in development to bring you the next generation of our award-winning home brew grinder. From the finest pour-overs to the coarsest cold brews, your coffee will never be the same again.",
+        titleColor: "#4f46e5",
+        headlineColor: "#111827",
+        descriptionColor: "#6b7280",
+        images: [
+          { src: "https://react.email/static/stagg-eletric-kettle.jpg", alt: "Stagg Electric Kettle", href: "#" },
+          { src: "https://react.email/static/ode-grinder.jpg", alt: "Ode Grinder", href: "#" },
+          { src: "https://react.email/static/atmos-vacuum-canister.jpg", alt: "Atmos Vacuum Canister", href: "#" },
+          { src: "https://react.email/static/clyde-electric-kettle.jpg", alt: "Clyde Electric Kettle", href: "#" },
+        ],
+        columns: 2,
+        imageHeight: 288,
+        borderRadius: "12px",
+        gap: "16px",
+      };
+    case "marketing":
+      return {
+        headerBgColor: "#292524",
+        headerTitle: "Coffee Storage",
+        headerDescription: "Keep your coffee fresher for longer with innovative technology.",
+        headerLinkText: "Shop now →",
+        headerLinkUrl: "#",
+        headerImage: "https://react.email/static/stagg-eletric-kettle.jpg",
+        headerImageAlt: "Coffee Bean Storage",
+        products: [
+          {
+            imageUrl: "https://react.email/static/atmos-vacuum-canister.jpg",
+            altText: "Auto-Sealing Vacuum Canister",
+            title: "Auto-Sealing Vacuum Canister",
+            description: "A container that automatically creates an airtight seal with a button press.",
+            linkUrl: "#",
+          },
+          {
+            imageUrl: "https://react.email/static/ode-grinder.jpg",
+            altText: "Ode Grinder",
+            title: "Ode Grinder",
+            description: "Keep your coffee fresher for longer with this high-performance grinder.",
+            linkUrl: "#",
+          },
+        ],
+        containerBgColor: "#ffffff",
+        borderRadius: "8px",
+      };
     case "social":
-      return {};
+      return {
+        twitterUrl: "#",
+        githubUrl: "#",
+        linkedinUrl: "#",
+        iconSize: "36",
+        gap: "12px",
+        iconColor: "#ffffff",
+        twitterColor: "#1DA1F2",
+        githubColor: "#333333",
+        linkedinColor: "#0A66C2",
+      };
     case "footer":
       return { 
         company: "Acme Inc.", 
@@ -672,9 +1057,14 @@ function PropertyPanel({
   const isButton = component.type === "button";
   const isLink = component.type === "link";
   const isImage = component.type === "image";
+  const isCode = component.type === "code";
   const isCodeInline = component.type === "code-inline";
   const isDivider = component.type === "divider";
   const isSocial = component.type === "social";
+  const isFooter = component.type === "footer";
+  const isGallery = component.type === "gallery";
+  const isMarketing = component.type === "marketing";
+  const isNumberedList = component.type === "numbered-list";
 
   return (
     <div className="space-y-0">
@@ -767,6 +1157,58 @@ function PropertyPanel({
                   />
                 </div>
               </div>
+              {isLink && (
+                <>
+                  <div>
+                    <label className="block text-[10px] text-[#86868b] mb-1 font-medium">Text Decoration</label>
+                    <select
+                      value={getProp("textDecoration", "underline")}
+                      onChange={(e) => updateProp("textDecoration", e.target.value)}
+                      className="w-full px-2 py-1.5 text-xs border border-[#d1d1d6] rounded-md bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                    >
+                      <option value="underline">Underline</option>
+                      <option value="none">None</option>
+                      <option value="line-through">Line Through</option>
+                    </select>
+                  </div>
+                  <div className="pt-2 border-t border-[#e5e5e7]">
+                    <label className="block text-[10px] text-[#86868b] mb-2 font-medium">Colors</label>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <input type="color" value={getProp("color", "#1e9df1")} onChange={(e) => updateProp("color", e.target.value)} className="w-6 h-6 rounded border border-[#d1d1d6] cursor-pointer" />
+                        <span className="text-[10px] text-[#86868b] flex-1">Text Color</span>
+                        <input type="text" value={getProp("color", "#1e9df1")} onChange={(e) => updateProp("color", e.target.value)} className="w-20 px-2 py-1 text-[10px] font-mono border border-[#d1d1d6] rounded" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input type="color" value={getProp("backgroundColor", "#ffffff")} onChange={(e) => updateProp("backgroundColor", e.target.value === "#ffffff" ? "transparent" : e.target.value)} className="w-6 h-6 rounded border border-[#d1d1d6] cursor-pointer" />
+                        <span className="text-[10px] text-[#86868b] flex-1">Background</span>
+                        <input type="text" value={getProp("backgroundColor", "transparent")} onChange={(e) => updateProp("backgroundColor", e.target.value)} className="w-20 px-2 py-1 text-[10px] font-mono border border-[#d1d1d6] rounded" placeholder="transparent" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-[#e5e5e7]">
+                    <label className="block text-[10px] text-[#86868b] mb-2 font-medium">Spacing</label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <div>
+                        <label className="block text-[10px] text-[#86868b] mb-1">Padding</label>
+                        <input type="text" value={getProp("padding", "0")} onChange={(e) => updateProp("padding", e.target.value)} className="w-full px-2 py-1 text-[10px] border border-[#d1d1d6] rounded" placeholder="8px 16px" />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-[#86868b] mb-1">Border Radius</label>
+                        <input type="text" value={getProp("borderRadius", "0")} onChange={(e) => updateProp("borderRadius", e.target.value)} className="w-full px-2 py-1 text-[10px] border border-[#d1d1d6] rounded" placeholder="4px" />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-[#86868b] mb-1">Margin Top</label>
+                        <input type="text" value={getProp("marginTop", "0")} onChange={(e) => updateProp("marginTop", e.target.value)} className="w-full px-2 py-1 text-[10px] border border-[#d1d1d6] rounded" placeholder="0" />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-[#86868b] mb-1">Margin Bottom</label>
+                        <input type="text" value={getProp("marginBottom", "12px")} onChange={(e) => updateProp("marginBottom", e.target.value)} className="w-full px-2 py-1 text-[10px] border border-[#d1d1d6] rounded" placeholder="12px" />
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -1114,28 +1556,42 @@ function PropertyPanel({
           {openSections.spacing && (
             <div className="space-y-3 pb-3 pt-1 px-0">
               {isButton && (
-                <div className="grid grid-cols-2 gap-2">
+                <>
                   <div>
-                    <label className="block text-[11px] text-[#86868b] mb-1.5 font-medium">Padding X</label>
-                    <input
-                      type="text"
-                      value={getProp("paddingX", "")}
-                      onChange={(e) => updateProp("paddingX", e.target.value)}
+                    <label className="block text-[11px] text-[#86868b] mb-1.5 font-medium">Width</label>
+                    <select
+                      value={getProp("width", "auto")}
+                      onChange={(e) => updateProp("width", e.target.value)}
                       className="w-full px-2.5 py-1.5 text-sm border border-[#d1d1d6] rounded-md bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
-                      placeholder="20px"
-                    />
+                    >
+                      <option value="auto">Auto</option>
+                      <option value="100%">Full Width</option>
+                      <option value="50%">Half Width</option>
+                    </select>
                   </div>
-                  <div>
-                    <label className="block text-[11px] text-[#86868b] mb-1.5 font-medium">Padding Y</label>
-                    <input
-                      type="text"
-                      value={getProp("paddingY", "")}
-                      onChange={(e) => updateProp("paddingY", e.target.value)}
-                      className="w-full px-2.5 py-1.5 text-sm border border-[#d1d1d6] rounded-md bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
-                      placeholder="12px"
-                    />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[11px] text-[#86868b] mb-1.5 font-medium">Padding X</label>
+                      <input
+                        type="text"
+                        value={getProp("paddingX", "")}
+                        onChange={(e) => updateProp("paddingX", e.target.value)}
+                        className="w-full px-2.5 py-1.5 text-sm border border-[#d1d1d6] rounded-md bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                        placeholder="20px"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-[#86868b] mb-1.5 font-medium">Padding Y</label>
+                      <input
+                        type="text"
+                        value={getProp("paddingY", "")}
+                        onChange={(e) => updateProp("paddingY", e.target.value)}
+                        className="w-full px-2.5 py-1.5 text-sm border border-[#d1d1d6] rounded-md bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                        placeholder="12px"
+                      />
+                    </div>
                   </div>
-                </div>
+                </>
               )}
               <div>
                 <label className="block text-[11px] text-[#86868b] mb-1.5 font-medium">Margin Bottom</label>
@@ -1440,6 +1896,258 @@ function PropertyPanel({
         </div>
       )}
 
+      {/* Gallery Section */}
+      {isGallery && (
+        <div className="border-b border-[#e5e5e7]">
+          <button
+            onClick={() => toggleSection("content")}
+            className="w-full flex items-center justify-between py-2 px-0 hover:bg-[#f5f5f7] transition-colors rounded-sm"
+          >
+            <span className="text-[11px] font-medium text-[#1d1d1f]">Gallery Content</span>
+            <ChevronDown className={`h-3 w-3 text-[#86868b] transition-transform ${openSections.content ? '' : '-rotate-90'}`} />
+          </button>
+          {openSections.content && (
+            <div className="space-y-2 pb-2.5 pt-1 px-0">
+              <div>
+                <label className="block text-[10px] text-[#86868b] mb-1 font-medium">Section Title</label>
+                <input
+                  type="text"
+                  value={getProp("sectionTitle", "")}
+                  onChange={(e) => updateProp("sectionTitle", e.target.value)}
+                  className="w-full px-2 py-1.5 text-xs border border-[#d1d1d6] rounded-md bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                  placeholder="Our products"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] text-[#86868b] mb-1 font-medium">Headline</label>
+                <input
+                  type="text"
+                  value={getProp("headline", "")}
+                  onChange={(e) => updateProp("headline", e.target.value)}
+                  className="w-full px-2 py-1.5 text-xs border border-[#d1d1d6] rounded-md bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                  placeholder="Elegant Style"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] text-[#86868b] mb-1 font-medium">Description</label>
+                <textarea
+                  value={getProp("description", "")}
+                  onChange={(e) => updateProp("description", e.target.value)}
+                  className="w-full px-2 py-1.5 text-xs border border-[#d1d1d6] rounded-md bg-white resize-none min-h-[60px] focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                  placeholder="Description text..."
+                />
+              </div>
+              <div className="pt-2 border-t border-[#e5e5e7]">
+                <label className="block text-[10px] text-[#86868b] mb-2 font-medium">Colors</label>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={getProp("titleColor", "#4f46e5")} onChange={(e) => updateProp("titleColor", e.target.value)} className="w-6 h-6 rounded border border-[#d1d1d6] cursor-pointer" />
+                    <span className="text-[10px] text-[#86868b]">Title</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={getProp("headlineColor", "#111827")} onChange={(e) => updateProp("headlineColor", e.target.value)} className="w-6 h-6 rounded border border-[#d1d1d6] cursor-pointer" />
+                    <span className="text-[10px] text-[#86868b]">Headline</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={getProp("descriptionColor", "#6b7280")} onChange={(e) => updateProp("descriptionColor", e.target.value)} className="w-6 h-6 rounded border border-[#d1d1d6] cursor-pointer" />
+                    <span className="text-[10px] text-[#86868b]">Description</span>
+                  </div>
+                </div>
+              </div>
+              <div className="pt-2 border-t border-[#e5e5e7]">
+                <label className="block text-[10px] text-[#86868b] mb-2 font-medium">Layout</label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <div>
+                    <label className="block text-[10px] text-[#86868b] mb-1">Columns</label>
+                    <select value={getProp("columns", 2)} onChange={(e) => updateProp("columns", parseInt(e.target.value))} className="w-full px-2 py-1.5 text-xs border border-[#d1d1d6] rounded-md bg-white">
+                      <option value={1}>1</option>
+                      <option value={2}>2</option>
+                      <option value={3}>3</option>
+                      <option value={4}>4</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-[#86868b] mb-1">Image Height</label>
+                    <input type="number" value={getProp("imageHeight", 288)} onChange={(e) => updateProp("imageHeight", parseInt(e.target.value))} className="w-full px-2 py-1.5 text-xs border border-[#d1d1d6] rounded-md bg-white" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-[#86868b] mb-1">Border Radius</label>
+                    <input type="text" value={getProp("borderRadius", "12px")} onChange={(e) => updateProp("borderRadius", e.target.value)} className="w-full px-2 py-1.5 text-xs border border-[#d1d1d6] rounded-md bg-white" placeholder="12px" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-[#86868b] mb-1">Gap</label>
+                    <input type="text" value={getProp("gap", "16px")} onChange={(e) => updateProp("gap", e.target.value)} className="w-full px-2 py-1.5 text-xs border border-[#d1d1d6] rounded-md bg-white" placeholder="16px" />
+                  </div>
+                </div>
+              </div>
+              <div className="pt-2 border-t border-[#e5e5e7]">
+                <label className="block text-[10px] text-[#86868b] mb-2 font-medium">Images ({(getProp("images", []) as any[]).length})</label>
+                {(getProp("images", []) as any[]).map((img: any, idx: number) => (
+                  <div key={idx} className="mb-2 p-2 bg-[#f5f5f7] rounded-md">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-[10px] font-medium">Image {idx + 1}</span>
+                      <button onClick={() => { const imgs = [...getProp("images", [])]; imgs.splice(idx, 1); updateProp("images", imgs); }} className="text-red-500 text-[10px]">Remove</button>
+                    </div>
+                    <input type="text" value={img.src || ""} onChange={(e) => { const imgs = [...getProp("images", [])]; imgs[idx] = { ...imgs[idx], src: e.target.value }; updateProp("images", imgs); }} className="w-full px-2 py-1 text-[10px] border border-[#d1d1d6] rounded mb-1" placeholder="Image URL" />
+                    <input type="text" value={img.alt || ""} onChange={(e) => { const imgs = [...getProp("images", [])]; imgs[idx] = { ...imgs[idx], alt: e.target.value }; updateProp("images", imgs); }} className="w-full px-2 py-1 text-[10px] border border-[#d1d1d6] rounded mb-1" placeholder="Alt text" />
+                    <input type="text" value={img.href || ""} onChange={(e) => { const imgs = [...getProp("images", [])]; imgs[idx] = { ...imgs[idx], href: e.target.value }; updateProp("images", imgs); }} className="w-full px-2 py-1 text-[10px] border border-[#d1d1d6] rounded" placeholder="Link URL" />
+                  </div>
+                ))}
+                <button onClick={() => updateProp("images", [...getProp("images", []), { src: "", alt: "", href: "#" }])} className="w-full py-1.5 text-[10px] text-primary border border-dashed border-primary rounded-md hover:bg-primary/5">+ Add Image</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Numbered List Section */}
+      {isNumberedList && (
+        <div className="border-b border-[#e5e5e7]">
+          <button
+            onClick={() => toggleSection("content")}
+            className="w-full flex items-center justify-between py-2 px-0 hover:bg-[#f5f5f7] transition-colors rounded-sm"
+          >
+            <span className="text-[11px] font-medium text-[#1d1d1f]">List Items</span>
+            <ChevronDown className={`h-3 w-3 text-[#86868b] transition-transform ${openSections.content ? '' : '-rotate-90'}`} />
+          </button>
+          {openSections.content && (
+            <div className="space-y-2 pb-2.5 pt-1 px-0">
+              <div>
+                <label className="block text-[10px] text-[#86868b] mb-1 font-medium">Number Background Color</label>
+                <div className="flex items-center gap-2">
+                  <input type="color" value={getProp("numberBgColor", "#4f46e5")} onChange={(e) => updateProp("numberBgColor", e.target.value)} className="w-7 h-7 rounded border border-[#d1d1d6] cursor-pointer" />
+                  <input type="text" value={getProp("numberBgColor", "#4f46e5")} onChange={(e) => updateProp("numberBgColor", e.target.value)} className="flex-1 px-2 py-1.5 text-xs font-mono border border-[#d1d1d6] rounded-md bg-white" placeholder="#4f46e5" />
+                </div>
+              </div>
+              <div className="pt-2 border-t border-[#e5e5e7]">
+                <label className="block text-[10px] text-[#86868b] mb-2 font-medium">Items ({(getProp("items", []) as any[]).length})</label>
+                {(getProp("items", []) as any[]).map((item: any, idx: number) => (
+                  <div key={idx} className="mb-2 p-2 bg-[#f5f5f7] rounded-md">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-[10px] font-medium">#{idx + 1}</span>
+                      <button onClick={() => { const items = [...getProp("items", [])]; items.splice(idx, 1); updateProp("items", items); }} className="text-red-500 text-[10px]">Remove</button>
+                    </div>
+                    <input type="text" value={item.title || ""} onChange={(e) => { const items = [...getProp("items", [])]; items[idx] = { ...items[idx], title: e.target.value }; updateProp("items", items); }} className="w-full px-2 py-1 text-[10px] border border-[#d1d1d6] rounded mb-1" placeholder="Title" />
+                    <input type="text" value={item.description || ""} onChange={(e) => { const items = [...getProp("items", [])]; items[idx] = { ...items[idx], description: e.target.value }; updateProp("items", items); }} className="w-full px-2 py-1 text-[10px] border border-[#d1d1d6] rounded" placeholder="Description" />
+                  </div>
+                ))}
+                <button onClick={() => updateProp("items", [...getProp("items", []), { title: "", description: "" }])} className="w-full py-1.5 text-[10px] text-primary border border-dashed border-primary rounded-md hover:bg-primary/5">+ Add Item</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Marketing Section */}
+      {isMarketing && (
+        <div className="border-b border-[#e5e5e7]">
+          <button
+            onClick={() => toggleSection("content")}
+            className="w-full flex items-center justify-between py-2 px-0 hover:bg-[#f5f5f7] transition-colors rounded-sm"
+          >
+            <span className="text-[11px] font-medium text-[#1d1d1f]">Marketing Content</span>
+            <ChevronDown className={`h-3 w-3 text-[#86868b] transition-transform ${openSections.content ? '' : '-rotate-90'}`} />
+          </button>
+          {openSections.content && (
+            <div className="space-y-2 pb-2.5 pt-1 px-0">
+              <div className="pt-1 border-t border-[#e5e5e7]">
+                <label className="block text-[10px] text-[#86868b] mb-2 font-medium">Header</label>
+                <div className="space-y-1.5">
+                  <input type="text" value={getProp("headerTitle", "")} onChange={(e) => updateProp("headerTitle", e.target.value)} className="w-full px-2 py-1.5 text-xs border border-[#d1d1d6] rounded-md" placeholder="Header Title" />
+                  <textarea value={getProp("headerDescription", "")} onChange={(e) => updateProp("headerDescription", e.target.value)} className="w-full px-2 py-1.5 text-xs border border-[#d1d1d6] rounded-md resize-none min-h-[50px]" placeholder="Header Description" />
+                  <input type="text" value={getProp("headerLinkText", "")} onChange={(e) => updateProp("headerLinkText", e.target.value)} className="w-full px-2 py-1.5 text-xs border border-[#d1d1d6] rounded-md" placeholder="Link Text (e.g. Shop now →)" />
+                  <input type="text" value={getProp("headerLinkUrl", "")} onChange={(e) => updateProp("headerLinkUrl", e.target.value)} className="w-full px-2 py-1.5 text-xs border border-[#d1d1d6] rounded-md" placeholder="Link URL" />
+                  <input type="text" value={getProp("headerImage", "")} onChange={(e) => updateProp("headerImage", e.target.value)} className="w-full px-2 py-1.5 text-xs border border-[#d1d1d6] rounded-md" placeholder="Header Image URL" />
+                </div>
+              </div>
+              <div className="pt-2 border-t border-[#e5e5e7]">
+                <label className="block text-[10px] text-[#86868b] mb-2 font-medium">Colors</label>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={getProp("headerBgColor", "#292524")} onChange={(e) => updateProp("headerBgColor", e.target.value)} className="w-6 h-6 rounded border border-[#d1d1d6] cursor-pointer" />
+                    <span className="text-[10px] text-[#86868b]">Header Background</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={getProp("containerBgColor", "#ffffff")} onChange={(e) => updateProp("containerBgColor", e.target.value)} className="w-6 h-6 rounded border border-[#d1d1d6] cursor-pointer" />
+                    <span className="text-[10px] text-[#86868b]">Container Background</span>
+                  </div>
+                </div>
+              </div>
+              <div className="pt-2 border-t border-[#e5e5e7]">
+                <label className="block text-[10px] text-[#86868b] mb-2 font-medium">Products ({(getProp("products", []) as any[]).length})</label>
+                {(getProp("products", []) as any[]).map((product: any, idx: number) => (
+                  <div key={idx} className="mb-2 p-2 bg-[#f5f5f7] rounded-md">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-[10px] font-medium">Product {idx + 1}</span>
+                      <button onClick={() => { const prods = [...getProp("products", [])]; prods.splice(idx, 1); updateProp("products", prods); }} className="text-red-500 text-[10px]">Remove</button>
+                    </div>
+                    <input type="text" value={product.title || ""} onChange={(e) => { const prods = [...getProp("products", [])]; prods[idx] = { ...prods[idx], title: e.target.value }; updateProp("products", prods); }} className="w-full px-2 py-1 text-[10px] border border-[#d1d1d6] rounded mb-1" placeholder="Title" />
+                    <input type="text" value={product.description || ""} onChange={(e) => { const prods = [...getProp("products", [])]; prods[idx] = { ...prods[idx], description: e.target.value }; updateProp("products", prods); }} className="w-full px-2 py-1 text-[10px] border border-[#d1d1d6] rounded mb-1" placeholder="Description" />
+                    <input type="text" value={product.imageUrl || ""} onChange={(e) => { const prods = [...getProp("products", [])]; prods[idx] = { ...prods[idx], imageUrl: e.target.value }; updateProp("products", prods); }} className="w-full px-2 py-1 text-[10px] border border-[#d1d1d6] rounded mb-1" placeholder="Image URL" />
+                    <input type="text" value={product.linkUrl || ""} onChange={(e) => { const prods = [...getProp("products", [])]; prods[idx] = { ...prods[idx], linkUrl: e.target.value }; updateProp("products", prods); }} className="w-full px-2 py-1 text-[10px] border border-[#d1d1d6] rounded" placeholder="Link URL" />
+                  </div>
+                ))}
+                <button onClick={() => updateProp("products", [...getProp("products", []), { title: "", description: "", imageUrl: "", linkUrl: "#" }])} className="w-full py-1.5 text-[10px] text-primary border border-dashed border-primary rounded-md hover:bg-primary/5">+ Add Product</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Footer Section */}
+      {isFooter && (
+        <div className="border-b border-[#e5e5e7]">
+          <button
+            onClick={() => toggleSection("content")}
+            className="w-full flex items-center justify-between py-2 px-0 hover:bg-[#f5f5f7] transition-colors rounded-sm"
+          >
+            <span className="text-[11px] font-medium text-[#1d1d1f]">Footer Content</span>
+            <ChevronDown className={`h-3 w-3 text-[#86868b] transition-transform ${openSections.content ? '' : '-rotate-90'}`} />
+          </button>
+          {openSections.content && (
+            <div className="space-y-2 pb-2.5 pt-1 px-0">
+              <div>
+                <label className="block text-[10px] text-[#86868b] mb-1 font-medium">Company Name</label>
+                <input type="text" value={getProp("company", "")} onChange={(e) => updateProp("company", e.target.value)} className="w-full px-2 py-1.5 text-xs border border-[#d1d1d6] rounded-md bg-white" placeholder="Acme Inc." />
+              </div>
+              <div>
+                <label className="block text-[10px] text-[#86868b] mb-1 font-medium">Address</label>
+                <input type="text" value={getProp("address", "")} onChange={(e) => updateProp("address", e.target.value)} className="w-full px-2 py-1.5 text-xs border border-[#d1d1d6] rounded-md bg-white" placeholder="123 Main Street, City, ST 12345" />
+              </div>
+              <div>
+                <label className="block text-[10px] text-[#86868b] mb-1 font-medium">Unsubscribe URL</label>
+                <input type="text" value={getProp("unsubscribeUrl", "")} onChange={(e) => updateProp("unsubscribeUrl", e.target.value)} className="w-full px-2 py-1.5 text-xs border border-[#d1d1d6] rounded-md bg-white" placeholder="https://..." />
+              </div>
+              <div>
+                <label className="block text-[10px] text-[#86868b] mb-1 font-medium">Preferences URL</label>
+                <input type="text" value={getProp("preferencesUrl", "")} onChange={(e) => updateProp("preferencesUrl", e.target.value)} className="w-full px-2 py-1.5 text-xs border border-[#d1d1d6] rounded-md bg-white" placeholder="https://..." />
+              </div>
+              <div>
+                <label className="block text-[10px] text-[#86868b] mb-1 font-medium">Privacy URL</label>
+                <input type="text" value={getProp("privacyUrl", "")} onChange={(e) => updateProp("privacyUrl", e.target.value)} className="w-full px-2 py-1.5 text-xs border border-[#d1d1d6] rounded-md bg-white" placeholder="https://..." />
+              </div>
+              <div className="pt-2 border-t border-[#e5e5e7]">
+                <label className="block text-[10px] text-[#86868b] mb-2 font-medium">Colors</label>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={getProp("color", "#1d1d1f")} onChange={(e) => updateProp("color", e.target.value)} className="w-6 h-6 rounded border border-[#d1d1d6] cursor-pointer" />
+                    <span className="text-[10px] text-[#86868b]">Text Color</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={getProp("linkColor", "#1e9df1")} onChange={(e) => updateProp("linkColor", e.target.value)} className="w-6 h-6 rounded border border-[#d1d1d6] cursor-pointer" />
+                    <span className="text-[10px] text-[#86868b]">Link Color</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={getProp("borderColor", "#e5e5e5")} onChange={(e) => updateProp("borderColor", e.target.value)} className="w-6 h-6 rounded border border-[#d1d1d6] cursor-pointer" />
+                    <span className="text-[10px] text-[#86868b]">Border Color</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Social Icons Section */}
       {isSocial && (
         <div className="border-b border-[#e5e5e7]">
@@ -1509,17 +2217,49 @@ function PropertyPanel({
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
-                    value={getProp("iconColor", "#333333")}
+                    value={getProp("iconColor", "#ffffff")}
                     onChange={(e) => updateProp("iconColor", e.target.value)}
                     className="w-7 h-7 rounded border border-[#d1d1d6] cursor-pointer"
                   />
                   <input
                     type="text"
-                    value={getProp("iconColor", "#333333")}
+                    value={getProp("iconColor", "#ffffff")}
                     onChange={(e) => updateProp("iconColor", e.target.value)}
                     className="flex-1 px-2 py-1.5 text-xs font-mono border border-[#d1d1d6] rounded-md bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
-                    placeholder="#333333"
+                    placeholder="#ffffff"
                   />
+                </div>
+              </div>
+              <div className="pt-2 border-t border-[#e5e5e7] mt-2">
+                <label className="block text-[10px] text-[#86868b] mb-2 font-medium">Background Colors</label>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={getProp("twitterColor", "#1DA1F2")}
+                      onChange={(e) => updateProp("twitterColor", e.target.value)}
+                      className="w-6 h-6 rounded border border-[#d1d1d6] cursor-pointer"
+                    />
+                    <span className="text-[10px] text-[#86868b]">Twitter</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={getProp("githubColor", "#333333")}
+                      onChange={(e) => updateProp("githubColor", e.target.value)}
+                      className="w-6 h-6 rounded border border-[#d1d1d6] cursor-pointer"
+                    />
+                    <span className="text-[10px] text-[#86868b]">GitHub</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={getProp("linkedinColor", "#0A66C2")}
+                      onChange={(e) => updateProp("linkedinColor", e.target.value)}
+                      className="w-6 h-6 rounded border border-[#d1d1d6] cursor-pointer"
+                    />
+                    <span className="text-[10px] text-[#86868b]">LinkedIn</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1539,7 +2279,7 @@ export default function Home() {
   const [exportSubmitted, setExportSubmitted] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
   const [components, setComponents] = useState<EmailComponent[]>(templates[0]!.components);
-  const [activeTemplate, setActiveTemplate] = useState("aws");
+  const [activeTemplate, setActiveTemplate] = useState("amazon-review");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draggedType, setDraggedType] = useState<string | null>(null);
@@ -2007,10 +2747,10 @@ export default function Home() {
                         ))}
                       </div>
                     </div>
-                    {/* More components coming soon */}
+                    {/* More components */}
                     <div className="pt-4 mt-4 border-t border-[#e5e5e7]">
                       <motion.div 
-                        className="relative overflow-hidden rounded-lg bg-gradient-to-r from-primary/10 via-primary/5 to-primary/10 border border-primary/20 p-3 cursor-pointer group hover:from-primary/15 hover:via-primary/10 hover:to-primary/15 transition-all"
+                        className="relative overflow-hidden rounded-xl bg-gradient-to-br from-primary/15 via-primary/5 to-violet-500/10 border border-primary/30 p-4 cursor-pointer group hover:from-primary/20 hover:via-primary/10 hover:to-violet-500/15 transition-all shadow-sm"
                         whileHover={{ scale: 1.02 }}
                         animate={{ 
                           backgroundPosition: ["0%", "100%", "0%"],
@@ -2020,8 +2760,7 @@ export default function Home() {
                           <div className="flex items-center gap-2">
                             <motion.div
                               animate={{ 
-                                scale: [1, 1.2, 1],
-                                rotate: [0, 90, 0]
+                                scale: [1, 1.15, 1],
                               }}
                               transition={{ 
                                 duration: 2,
@@ -2029,43 +2768,15 @@ export default function Home() {
                                 ease: "easeInOut"
                               }}
                             >
-                              <Plus className="h-5 w-5 text-primary" />
+                              <Sparkles className="h-5 w-5 text-primary" />
                             </motion.div>
-                            <motion.span 
-                              className="text-xs font-bold text-primary"
-                              animate={{
-                                opacity: [0.7, 1, 0.7]
-                              }}
-                              transition={{
-                                duration: 1.5,
-                                repeat: Infinity,
-                                ease: "easeInOut"
-                              }}
-                            >
-                              Many More!
-                            </motion.span>
+                            <span className="text-sm font-bold bg-gradient-to-r from-primary to-violet-600 bg-clip-text text-transparent">
+                              100+ Components
+                            </span>
                           </div>
-                          <p className="text-[9px] text-[#86868b] text-center leading-tight group-hover:text-primary/80 transition-colors">
-                            <span className="font-semibold">50+</span> components coming soon
+                          <p className="text-[10px] text-[#6b7280] text-center leading-tight group-hover:text-primary/80 transition-colors">
+                            Email blocks, layouts, headers, footers & more
                           </p>
-                          <div className="flex items-center gap-1 mt-0.5">
-                            {[...Array(3)].map((_, i) => (
-                              <motion.div
-                                key={i}
-                                className="w-1.5 h-1.5 rounded-full bg-primary/40"
-                                animate={{
-                                  scale: [1, 1.3, 1],
-                                  opacity: [0.4, 1, 0.4]
-                                }}
-                                transition={{
-                                  duration: 1.5,
-                                  repeat: Infinity,
-                                  delay: i * 0.2,
-                                  ease: "easeInOut"
-                                }}
-                              />
-                            ))}
-                          </div>
                         </div>
                       </motion.div>
                     </div>

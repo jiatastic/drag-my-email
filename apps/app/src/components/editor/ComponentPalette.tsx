@@ -54,33 +54,7 @@ function SectionPreview() {
   );
 }
 
-function RowPreview() {
-  return (
-    <div className="w-full h-14 flex items-center justify-center">
-      <div className="flex gap-0.5">
-        {[0, 1, 2].map((i) => (
-          <motion.div
-            key={i}
-            className="w-3.5 h-7 bg-gray-100 rounded border border-gray-200"
-            whileHover={{ 
-              y: -2, 
-              borderColor: "var(--primary)",
-              backgroundColor: "rgba(30, 157, 241, 0.08)"
-            }}
-            transition={{ 
-              type: "spring", 
-              stiffness: 400, 
-              damping: 20,
-              delay: i * 0.02
-            }}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ColumnPreview() {
+function ColumnsPreview() {
   return (
     <div className="w-full h-14 flex items-center justify-center">
       <div className="flex gap-1">
@@ -449,17 +423,90 @@ function MarkdownPreview() {
   );
 }
 
+function StatsPreview() {
+  return (
+    <div className="w-full h-14 flex items-center justify-center">
+      <motion.div 
+        className="flex gap-2"
+        whileHover={{ scale: 1.02 }}
+        transition={{ type: "spring", stiffness: 400, damping: 25 }}
+      >
+        {[0, 1, 2].map((i) => (
+          <motion.div
+            key={i}
+            className="flex flex-col items-center gap-0.5"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.05 }}
+          >
+            <motion.div 
+              className="text-[10px] font-bold text-gray-700"
+              whileHover={{ color: "var(--primary)", scale: 1.1 }}
+            >
+              42
+            </motion.div>
+            <motion.div 
+              className="w-8 h-0.5 bg-gray-300 rounded-full"
+              whileHover={{ backgroundColor: "var(--primary)", width: 10 }}
+            />
+            <motion.div 
+              className="w-6 h-0.5 bg-gray-200 rounded-full"
+              whileHover={{ width: 8 }}
+            />
+          </motion.div>
+        ))}
+      </motion.div>
+    </div>
+  );
+}
+
+function NumberedListPreview() {
+  return (
+    <div className="w-full h-14 flex flex-col justify-center px-2 gap-1.5">
+      {[1, 2, 3].map((num) => (
+        <motion.div
+          key={num}
+          className="flex items-center gap-2"
+          initial={{ opacity: 0, x: -4 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: num * 0.05 }}
+          whileHover={{ x: 2 }}
+        >
+          <motion.div 
+            className="w-3.5 h-3.5 rounded-full bg-indigo-500 flex items-center justify-center"
+            whileHover={{ scale: 1.2, backgroundColor: "#4f46e5" }}
+          >
+            <span className="text-[7px] font-semibold text-white">{num}</span>
+          </motion.div>
+          <div className="flex-1 flex flex-col gap-0.5">
+            <motion.div 
+              className="h-1.5 bg-gray-300 rounded-full"
+              style={{ width: `${70 - num * 10}%` }}
+              whileHover={{ backgroundColor: "#6366f1" }}
+            />
+            <motion.div 
+              className="h-1 bg-gray-200 rounded-full"
+              style={{ width: `${60 - num * 8}%` }}
+            />
+          </div>
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
 const componentPreviews: Record<string, React.FC> = {
   Container: ContainerPreview,
   Section: SectionPreview,
-  Row: RowPreview,
-  Column: ColumnPreview,
+  Columns: ColumnsPreview,
   Heading: HeadingPreview,
   Text: TextPreview,
   CodeBlock: CodeBlockPreview,
   CodeInline: CodeInlinePreview,
   Markdown: MarkdownPreview,
   Divider: DividerPreview,
+  Stats: StatsPreview,
+  NumberedList: NumberedListPreview,
   Button: ButtonPreview,
   Link: LinkPreview,
   Image: ImagePreview,
@@ -468,6 +515,9 @@ const componentPreviews: Record<string, React.FC> = {
   FooterSimple: FooterTextPreview,
   FooterTwoColumn: FooterTwoColumnPreview,
 };
+
+// Components to hide from the palette (internal components)
+const HIDDEN_COMPONENTS = ["Row", "Column"];
 
 interface DraggableComponentProps {
   component: {
@@ -577,11 +627,13 @@ function CategorySection({
 }
 
 export function ComponentPalette() {
-  // Use Object.entries to get both key and value
-  const componentsWithKeys = Object.entries(componentRegistry).map(([key, metadata]) => ({
-    key,
-    metadata,
-  }));
+  // Use Object.entries to get both key and value, filter out hidden components
+  const componentsWithKeys = Object.entries(componentRegistry)
+    .filter(([key]) => !HIDDEN_COMPONENTS.includes(key))
+    .map(([key, metadata]) => ({
+      key,
+      metadata,
+    }));
   
   // Group by category - now with keys preserved
   const layoutComponents = componentsWithKeys.filter(c => c.metadata.category === "layout");

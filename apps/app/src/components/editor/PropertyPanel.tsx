@@ -417,7 +417,13 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
   const isCodeBlock = component.type === "CodeBlock";
   const isCodeInline = component.type === "CodeInline";
   const isMarkdown = component.type === "Markdown";
+  const isStats = component.type === "Stats";
+  const isNumberedList = component.type === "NumberedList";
+  const isGallery = component.type === "Gallery";
+  const isMarketing = component.type === "Marketing";
   const hasLink = isButton || isLink;
+  // Check if this is the Columns component (Row with columnCount prop)
+  const isColumns = component.type === "Row" && component.props?.columnCount !== undefined;
   
   // Social platforms for SocialIcons component
   const allSocialPlatforms = [
@@ -656,6 +662,116 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                   />
                 </div>
               </InputRow>
+              <div className="space-y-1">
+                <Label className="text-xs text-gray-500">Alignment</Label>
+                <ToggleGroup
+                  value={getStyleValue("textAlign", "center")}
+                  onChange={(v) => updateProp("style.textAlign", v)}
+                  options={[
+                    { icon: <AlignLeft className="h-3.5 w-3.5 mx-auto" />, value: 'left' },
+                    { icon: <AlignCenter className="h-3.5 w-3.5 mx-auto" />, value: 'center' },
+                    { icon: <AlignRight className="h-3.5 w-3.5 mx-auto" />, value: 'right' },
+                  ]}
+                />
+              </div>
+            </Section>
+          )}
+
+          {/* COLUMNS LAYOUT SECTION */}
+          {isColumns && (
+            <Section title="Layout">
+              <div className="space-y-1">
+                <Label className="text-xs text-gray-500">Number of Columns</Label>
+                <Select
+                  value={String(props.columnCount || 2)}
+                  onChange={(v) => {
+                    const newCount = parseInt(v);
+                    const currentCount = component.children?.length || 0;
+                    const gap = props.columnGap || 20;
+                    const halfGap = gap / 2;
+                    
+                    // Rebuild children array based on new column count
+                    let newChildren = [...(component.children || [])];
+                    
+                    if (newCount > currentCount) {
+                      // Add more columns
+                      for (let i = currentCount; i < newCount; i++) {
+                        newChildren.push({
+                          id: `column-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 9)}`,
+                          type: "Column",
+                          props: {
+                            style: {
+                              verticalAlign: "top",
+                              paddingLeft: i === 0 ? "0" : `${halfGap}px`,
+                              paddingRight: i === newCount - 1 ? "0" : `${halfGap}px`,
+                            },
+                          },
+                          children: [],
+                        });
+                      }
+                    } else if (newCount < currentCount) {
+                      // Remove columns (keep the first N)
+                      newChildren = newChildren.slice(0, newCount);
+                    }
+                    
+                    // Update all column padding for gaps
+                    newChildren = newChildren.map((col, i) => ({
+                      ...col,
+                      props: {
+                        ...col.props,
+                        style: {
+                          ...col.props?.style,
+                          paddingLeft: i === 0 ? "0" : `${halfGap}px`,
+                          paddingRight: i === newCount - 1 ? "0" : `${halfGap}px`,
+                        },
+                      },
+                    }));
+                    
+                    onUpdate({
+                      props: { ...props, columnCount: newCount },
+                      children: newChildren,
+                    });
+                  }}
+                  options={[
+                    { label: '2 Columns', value: '2' },
+                    { label: '3 Columns', value: '3' },
+                    { label: '4 Columns', value: '4' },
+                  ]}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-gray-500">Gap Between Columns</Label>
+                <NumberInput
+                  value={props.columnGap || 20}
+                  onChange={(v) => {
+                    const gap = parseInt(v) || 20;
+                    const halfGap = gap / 2;
+                    const columnCount = props.columnCount || 2;
+                    
+                    // Update padding on all columns for gap
+                    const newChildren = (component.children || []).map((col: any, i: number) => ({
+                      ...col,
+                      props: {
+                        ...col.props,
+                        style: {
+                          ...col.props?.style,
+                          paddingLeft: i === 0 ? "0" : `${halfGap}px`,
+                          paddingRight: i === columnCount - 1 ? "0" : `${halfGap}px`,
+                        },
+                      },
+                    }));
+                    
+                    onUpdate({
+                      props: { ...props, columnGap: gap },
+                      children: newChildren,
+                    });
+                  }}
+                  unit="px"
+                  min={0}
+                  max={60}
+                  step={4}
+                />
+              </div>
             </Section>
           )}
 
@@ -773,6 +889,485 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                     ]}
                   />
                 </div>
+              </Section>
+            </>
+          )}
+
+          {/* STATS COMPONENT SECTION */}
+          {isStats && (
+            <Section title={`Stats (${(props.stats || []).length})`}>
+              <div className="space-y-2">
+                {(props.stats || []).map((stat: { value: string; title: string; description?: string }, idx: number) => (
+                  <div key={idx} className="p-2 bg-gray-50 rounded-lg border border-gray-100">
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1 space-y-1.5">
+                        <div className="flex gap-2">
+                          <Input
+                            value={stat.value}
+                            onChange={(e) => {
+                              const newStats = [...(props.stats || [])];
+                              newStats[idx] = { ...newStats[idx], value: e.target.value };
+                              updateProp("stats", newStats);
+                            }}
+                            placeholder="42"
+                            className="text-sm font-bold h-8 w-20"
+                          />
+                          <Input
+                            value={stat.title}
+                            onChange={(e) => {
+                              const newStats = [...(props.stats || [])];
+                              newStats[idx] = { ...newStats[idx], title: e.target.value };
+                              updateProp("stats", newStats);
+                            }}
+                            placeholder="Title..."
+                            className="text-sm h-8 flex-1"
+                          />
+                        </div>
+                        <Input
+                          value={stat.description || ""}
+                          onChange={(e) => {
+                            const newStats = [...(props.stats || [])];
+                            newStats[idx] = { ...newStats[idx], description: e.target.value };
+                            updateProp("stats", newStats);
+                          }}
+                          placeholder="Description (optional)..."
+                          className="text-xs h-7"
+                        />
+                      </div>
+                      <button
+                        onClick={() => {
+                          const newStats = (props.stats || []).filter((_: any, i: number) => i !== idx);
+                          updateProp("stats", newStats);
+                        }}
+                        className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors shrink-0"
+                      >
+                        <Minus className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => {
+                  const currentStats = props.stats || [];
+                  updateProp("stats", [...currentStats, { value: "0", title: "New Stat", description: "" }]);
+                }}
+                className="w-full mt-2 py-2 px-3 text-xs font-medium text-primary border border-dashed border-primary/30 rounded-lg hover:bg-primary/5 transition-colors flex items-center justify-center gap-1.5"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Stat
+              </button>
+            </Section>
+          )}
+
+          {/* NUMBERED LIST COMPONENT SECTION */}
+          {isNumberedList && (
+            <>
+              <Section title={`List Items (${(props.items || []).length})`}>
+                <div className="space-y-2">
+                  {(props.items || []).map((item: { title: string; description: string }, idx: number) => (
+                    <div key={idx} className="p-2 bg-gray-50 rounded-lg border border-gray-100">
+                      <div className="flex items-start gap-2">
+                        <div 
+                          className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-semibold text-white shrink-0 mt-1"
+                          style={{ backgroundColor: props.numberBgColor || "#4f46e5" }}
+                        >
+                          {idx + 1}
+                        </div>
+                        <div className="flex-1 space-y-1.5">
+                          <Input
+                            value={item.title}
+                            onChange={(e) => {
+                              const newItems = [...(props.items || [])];
+                              newItems[idx] = { ...newItems[idx], title: e.target.value };
+                              updateProp("items", newItems);
+                            }}
+                            placeholder="Title..."
+                            className="text-sm font-medium h-8"
+                          />
+                          <Textarea
+                            value={item.description}
+                            onChange={(e) => {
+                              const newItems = [...(props.items || [])];
+                              newItems[idx] = { ...newItems[idx], description: e.target.value };
+                              updateProp("items", newItems);
+                            }}
+                            placeholder="Description..."
+                            className="text-xs min-h-[40px] resize-none"
+                          />
+                        </div>
+                        <button
+                          onClick={() => {
+                            const newItems = (props.items || []).filter((_: any, i: number) => i !== idx);
+                            updateProp("items", newItems);
+                          }}
+                          className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors shrink-0"
+                        >
+                          <Minus className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => {
+                    const currentItems = props.items || [];
+                    updateProp("items", [...currentItems, { title: "New Item", description: "Description here..." }]);
+                  }}
+                  className="w-full mt-2 py-2 px-3 text-xs font-medium text-primary border border-dashed border-primary/30 rounded-lg hover:bg-primary/5 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add Item
+                </button>
+              </Section>
+
+              <Section title="Style">
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Number Circle Color</Label>
+                  <ColorInput 
+                    value={props.numberBgColor || "#4f46e5"} 
+                    onChange={(v) => updateProp("numberBgColor", v)} 
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Padding</Label>
+                  <NumberInput 
+                    value={style.padding || "0"} 
+                    onChange={(v) => updateProp("style.padding", v)} 
+                    unit="px"
+                  />
+                </div>
+              </Section>
+            </>
+          )}
+
+          {/* GALLERY COMPONENT SECTION */}
+          {isGallery && (
+            <>
+              <Section title="Content">
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Section Title</Label>
+                  <Input
+                    value={props.sectionTitle || "Our products"}
+                    onChange={(e) => updateProp("sectionTitle", e.target.value)}
+                    placeholder="Our products"
+                    className="text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Headline</Label>
+                  <Input
+                    value={props.headline || "Elegant Style"}
+                    onChange={(e) => updateProp("headline", e.target.value)}
+                    placeholder="Elegant Style"
+                    className="text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Description</Label>
+                  <Textarea
+                    value={props.description || ""}
+                    onChange={(e) => updateProp("description", e.target.value)}
+                    placeholder="Description..."
+                    className="text-sm min-h-[60px] resize-none"
+                  />
+                </div>
+              </Section>
+
+              <Section title="Colors">
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Title Color</Label>
+                  <ColorInput 
+                    value={props.titleColor || "#4f46e5"} 
+                    onChange={(v) => updateProp("titleColor", v)} 
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Headline Color</Label>
+                  <ColorInput 
+                    value={props.headlineColor || "#111827"} 
+                    onChange={(v) => updateProp("headlineColor", v)} 
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Description Color</Label>
+                  <ColorInput 
+                    value={props.descriptionColor || "#6b7280"} 
+                    onChange={(v) => updateProp("descriptionColor", v)} 
+                  />
+                </div>
+              </Section>
+
+              <Section title={`Images (${(props.images || []).length})`}>
+                <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                  {(props.images || []).map((img: { src: string; alt: string; href: string }, idx: number) => (
+                    <div key={idx} className="p-2 bg-gray-50 rounded-lg border border-gray-100">
+                      <div className="flex items-start gap-2">
+                        <div className="flex-1 space-y-1.5">
+                          <Input
+                            value={img.src}
+                            onChange={(e) => {
+                              const newImages = [...(props.images || [])];
+                              newImages[idx] = { ...newImages[idx], src: e.target.value };
+                              updateProp("images", newImages);
+                            }}
+                            placeholder="Image URL..."
+                            className="text-xs h-7"
+                          />
+                          <Input
+                            value={img.alt}
+                            onChange={(e) => {
+                              const newImages = [...(props.images || [])];
+                              newImages[idx] = { ...newImages[idx], alt: e.target.value };
+                              updateProp("images", newImages);
+                            }}
+                            placeholder="Alt text..."
+                            className="text-xs h-7"
+                          />
+                          <Input
+                            value={img.href}
+                            onChange={(e) => {
+                              const newImages = [...(props.images || [])];
+                              newImages[idx] = { ...newImages[idx], href: e.target.value };
+                              updateProp("images", newImages);
+                            }}
+                            placeholder="Link URL..."
+                            className="text-xs h-7"
+                          />
+                        </div>
+                        <button
+                          onClick={() => {
+                            const newImages = (props.images || []).filter((_: any, i: number) => i !== idx);
+                            updateProp("images", newImages);
+                          }}
+                          className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors shrink-0"
+                        >
+                          <Minus className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => {
+                    const currentImages = props.images || [];
+                    updateProp("images", [...currentImages, { src: "", alt: "New Image", href: "#" }]);
+                  }}
+                  className="w-full mt-2 py-2 px-3 text-xs font-medium text-primary border border-dashed border-primary/30 rounded-lg hover:bg-primary/5 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add Image
+                </button>
+              </Section>
+
+              <Section title="Layout">
+                <InputRow>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-gray-500">Columns</Label>
+                    <Select 
+                      value={String(props.columns || 2)}
+                      onChange={(v) => updateProp("columns", parseInt(v))}
+                      options={[
+                        { label: '2 Columns', value: '2' },
+                        { label: '3 Columns', value: '3' },
+                        { label: '4 Columns', value: '4' },
+                      ]}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-gray-500">Image Height</Label>
+                    <NumberInput 
+                      value={props.imageHeight || 288} 
+                      onChange={(v) => updateProp("imageHeight", parseInt(v) || 288)} 
+                      unit="px"
+                    />
+                  </div>
+                </InputRow>
+                <InputRow>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-gray-500">Border Radius</Label>
+                    <NumberInput 
+                      value={props.borderRadius || "12px"} 
+                      onChange={(v) => updateProp("borderRadius", v)} 
+                      unit="px"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-gray-500">Gap</Label>
+                    <NumberInput 
+                      value={props.gap || "16px"} 
+                      onChange={(v) => updateProp("gap", v)} 
+                      unit="px"
+                    />
+                  </div>
+                </InputRow>
+              </Section>
+            </>
+          )}
+
+          {/* MARKETING COMPONENT SECTION */}
+          {isMarketing && (
+            <>
+              <Section title="Header">
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Title</Label>
+                  <Input
+                    value={props.headerTitle || "Coffee Storage"}
+                    onChange={(e) => updateProp("headerTitle", e.target.value)}
+                    placeholder="Title..."
+                    className="text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Description</Label>
+                  <Textarea
+                    value={props.headerDescription || ""}
+                    onChange={(e) => updateProp("headerDescription", e.target.value)}
+                    placeholder="Description..."
+                    className="text-sm min-h-[50px] resize-none"
+                  />
+                </div>
+                <InputRow>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-gray-500">Link Text</Label>
+                    <Input
+                      value={props.headerLinkText || "Shop now →"}
+                      onChange={(e) => updateProp("headerLinkText", e.target.value)}
+                      placeholder="Shop now →"
+                      className="text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-gray-500">Link URL</Label>
+                    <Input
+                      value={props.headerLinkUrl || "#"}
+                      onChange={(e) => updateProp("headerLinkUrl", e.target.value)}
+                      placeholder="URL..."
+                      className="text-xs"
+                    />
+                  </div>
+                </InputRow>
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Header Image</Label>
+                  <Input
+                    value={props.headerImage || ""}
+                    onChange={(e) => updateProp("headerImage", e.target.value)}
+                    placeholder="Image URL..."
+                    className="text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Image Alt Text</Label>
+                  <Input
+                    value={props.headerImageAlt || ""}
+                    onChange={(e) => updateProp("headerImageAlt", e.target.value)}
+                    placeholder="Alt text..."
+                    className="text-xs"
+                  />
+                </div>
+              </Section>
+
+              <Section title="Colors">
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Header Background</Label>
+                  <ColorInput 
+                    value={props.headerBgColor || "#292524"} 
+                    onChange={(v) => updateProp("headerBgColor", v)} 
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Container Background</Label>
+                  <ColorInput 
+                    value={props.containerBgColor || "#ffffff"} 
+                    onChange={(v) => updateProp("containerBgColor", v)} 
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Border Radius</Label>
+                  <NumberInput 
+                    value={props.borderRadius || "8px"} 
+                    onChange={(v) => updateProp("borderRadius", v)} 
+                    unit="px"
+                  />
+                </div>
+              </Section>
+
+              <Section title={`Products (${(props.products || []).length})`}>
+                <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
+                  {(props.products || []).map((product: { imageUrl: string; altText: string; title: string; description: string; linkUrl: string }, idx: number) => (
+                    <div key={idx} className="p-2 bg-gray-50 rounded-lg border border-gray-100">
+                      <div className="flex items-start gap-2">
+                        <div className="flex-1 space-y-1.5">
+                          <Input
+                            value={product.title}
+                            onChange={(e) => {
+                              const newProducts = [...(props.products || [])];
+                              newProducts[idx] = { ...newProducts[idx], title: e.target.value };
+                              updateProp("products", newProducts);
+                            }}
+                            placeholder="Title..."
+                            className="text-xs h-7 font-medium"
+                          />
+                          <Textarea
+                            value={product.description}
+                            onChange={(e) => {
+                              const newProducts = [...(props.products || [])];
+                              newProducts[idx] = { ...newProducts[idx], description: e.target.value };
+                              updateProp("products", newProducts);
+                            }}
+                            placeholder="Description..."
+                            className="text-xs min-h-[40px] resize-none"
+                          />
+                          <Input
+                            value={product.imageUrl}
+                            onChange={(e) => {
+                              const newProducts = [...(props.products || [])];
+                              newProducts[idx] = { ...newProducts[idx], imageUrl: e.target.value };
+                              updateProp("products", newProducts);
+                            }}
+                            placeholder="Image URL..."
+                            className="text-xs h-7"
+                          />
+                          <Input
+                            value={product.linkUrl}
+                            onChange={(e) => {
+                              const newProducts = [...(props.products || [])];
+                              newProducts[idx] = { ...newProducts[idx], linkUrl: e.target.value };
+                              updateProp("products", newProducts);
+                            }}
+                            placeholder="Link URL..."
+                            className="text-xs h-7"
+                          />
+                        </div>
+                        <button
+                          onClick={() => {
+                            const newProducts = (props.products || []).filter((_: any, i: number) => i !== idx);
+                            updateProp("products", newProducts);
+                          }}
+                          className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors shrink-0"
+                        >
+                          <Minus className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => {
+                    const currentProducts = props.products || [];
+                    updateProp("products", [...currentProducts, { 
+                      imageUrl: "", 
+                      altText: "New Product", 
+                      title: "New Product", 
+                      description: "Product description...",
+                      linkUrl: "#" 
+                    }]);
+                  }}
+                  className="w-full mt-2 py-2 px-3 text-xs font-medium text-primary border border-dashed border-primary/30 rounded-lg hover:bg-primary/5 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add Product
+                </button>
               </Section>
             </>
           )}
