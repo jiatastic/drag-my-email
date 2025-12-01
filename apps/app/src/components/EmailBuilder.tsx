@@ -7,7 +7,6 @@ import { EmailCanvas } from "./editor/EmailCanvas";
 import { PropertyPanel } from "./editor/PropertyPanel";
 import { CodePreview } from "./editor/CodePreview";
 import { TemplateManager } from "./templates/TemplateManager";
-import { LayersPanel } from "./editor/LayersPanel";
 import { useEmailTemplate } from "@/hooks/useEmailTemplate";
 import type { EmailComponent, TailwindConfig, DefaultChildComponent, EmailGlobalStyles } from "@/types";
 import { componentRegistry } from "@/lib/component-registry";
@@ -21,7 +20,7 @@ import {
   ResizablePanel,
   ResizableHandle,
 } from "@react-email-builder/ui";
-import { Settings2, FolderOpen, GripVertical, Eye, Code2, Monitor, Laptop, Smartphone, Layers, LayoutGrid } from "lucide-react";
+import { Settings2, FolderOpen, GripVertical, Eye, Code2, Monitor, Laptop, Smartphone, Layers, LayoutGrid, Sparkles } from "lucide-react";
 
 export type DeviceType = "desktop" | "tablet" | "mobile";
 
@@ -268,9 +267,10 @@ export function EmailBuilder() {
       onDragEnd={handleDragEnd}
     >
       <div className="h-screen bg-background">
-        <ResizablePanelGroup direction="horizontal" className="h-full">
+        <ResizablePanelGroup direction="horizontal" className="h-full" autoSaveId="email-builder-layout">
           {/* Left Sidebar - Component Palette & Layers */}
           <ResizablePanel 
+            id="left-sidebar"
             defaultSize={18} 
             minSize={15} 
             maxSize={30}
@@ -287,11 +287,11 @@ export function EmailBuilder() {
                     Components
                   </TabsTrigger>
                   <TabsTrigger 
-                    value="layers" 
+                    value="ai" 
                     className="flex-1 h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent gap-1.5 text-xs"
                   >
-                    <Layers className="h-3.5 w-3.5" />
-                    Layers
+                    <Sparkles className="h-3.5 w-3.5" />
+                    AI
                   </TabsTrigger>
                 </TabsList>
                 
@@ -299,13 +299,16 @@ export function EmailBuilder() {
                   <ComponentPalette />
                 </TabsContent>
                 
-                <TabsContent value="layers" className="flex-1 m-0 overflow-hidden h-[calc(100%-44px)]">
-                  <LayersPanel
-                    components={components}
-                    selectedComponentId={selectedComponentId}
-                    onSelectComponent={setSelectedComponentId}
-                    onDeleteComponent={deleteComponent}
-                  />
+                <TabsContent value="ai" className="flex-1 m-0 overflow-hidden h-[calc(100%-44px)]">
+                  <div className="h-full flex flex-col items-center justify-center p-8">
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center mb-4">
+                      <Sparkles className="h-8 w-8 text-white" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">AI Assistant</h3>
+                    <p className="text-sm text-gray-500 text-center max-w-md">
+                      AI features coming soon. Tell me what you'd like to do here.
+                    </p>
+                  </div>
                 </TabsContent>
               </Tabs>
             </div>
@@ -314,7 +317,7 @@ export function EmailBuilder() {
           <ResizableHandle withHandle />
           
           {/* Main Content Area - Preview or Code */}
-          <ResizablePanel defaultSize={57} minSize={40}>
+          <ResizablePanel id="main-content" defaultSize={57} minSize={40}>
             <div className="h-full flex flex-col bg-muted/20">
               {/* Header with Device Selector and View Toggle */}
               <div className="border-b bg-background">
@@ -407,7 +410,12 @@ export function EmailBuilder() {
                     globalStyles={globalStyles}
                   />
                 ) : (
-                  <CodePreview components={components} tailwindConfig={tailwindConfig} globalStyles={globalStyles} />
+                  <CodePreview 
+                    components={components} 
+                    tailwindConfig={tailwindConfig} 
+                    globalStyles={globalStyles}
+                    onApplyCode={setComponents}
+                  />
                 )}
               </div>
             </div>
@@ -417,6 +425,7 @@ export function EmailBuilder() {
           
           {/* Right Sidebar - Properties & Templates */}
           <ResizablePanel 
+            id="right-sidebar"
             defaultSize={25} 
             minSize={18} 
             maxSize={35}

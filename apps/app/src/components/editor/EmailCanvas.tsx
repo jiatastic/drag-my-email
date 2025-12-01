@@ -25,6 +25,7 @@ import {
   Label,
 } from "@react-email-builder/ui";
 import { Mail, GripVertical, Trash2, Layers, Eye, Plus, Send, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { LayersPanel } from "./LayersPanel";
 import type { DeviceType } from "../EmailBuilder";
 import { useEffect, useState, useRef, Fragment } from "react";
 
@@ -1040,7 +1041,7 @@ export function EmailCanvas({
   const [html, setHtml] = useState<string>("");
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const containerWidth = deviceWidths[deviceType];
-  const [activeTab, setActiveTab] = useState<"preview" | "edit">("edit");
+  const [activeTab, setActiveTab] = useState<"preview" | "edit" | "layers">("edit");
   
   // Send email dialog state
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
@@ -1216,6 +1217,18 @@ export function EmailCanvas({
             <Eye className="h-4 w-4" />
             Preview
           </button>
+          <button
+            onClick={() => setActiveTab("layers")}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors",
+              activeTab === "layers"
+                ? "border-primary text-primary"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            )}
+          >
+            <Layers className="h-4 w-4" />
+            Layers
+          </button>
           
           {/* Send Button */}
           <button
@@ -1352,11 +1365,13 @@ export function EmailCanvas({
                 <div className="flex items-center gap-2 px-3 py-0.5 bg-white rounded-md border border-gray-200">
                   {activeTab === "edit" ? (
                     <Layers className="h-3 w-3 text-blue-500" />
+                  ) : activeTab === "layers" ? (
+                    <Layers className="h-3 w-3 text-blue-500" />
                   ) : (
                     <Eye className="h-3 w-3 text-gray-400" />
                   )}
                   <span className="text-xs text-gray-500 truncate">
-                    {activeTab === "edit" ? "Click to select • Drag to reorder" : deviceType === "desktop" ? "Desktop" : deviceType === "tablet" ? "768px" : "375px"}
+                    {activeTab === "edit" ? "Click to select • Drag to reorder" : activeTab === "layers" ? "Component Layers" : deviceType === "desktop" ? "Desktop" : deviceType === "tablet" ? "768px" : "375px"}
                   </span>
                 </div>
               </div>
@@ -1377,6 +1392,16 @@ export function EmailCanvas({
             >
               {components.length === 0 ? (
                 <EmptyState />
+              ) : activeTab === "layers" ? (
+                // Layers mode: Show layers panel
+                <div className="h-full bg-white">
+                  <LayersPanel
+                    components={components}
+                    selectedComponentId={selectedComponentId}
+                    onSelectComponent={onSelectComponent}
+                    onDeleteComponent={onDeleteComponent}
+                  />
+                </div>
               ) : activeTab === "preview" ? (
                 // Preview mode: iframe with perfect Tailwind rendering
                 <iframe

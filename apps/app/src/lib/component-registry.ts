@@ -23,6 +23,7 @@ import {
   ListOrdered,
   LayoutGrid,
   Megaphone,
+  Quote,
 } from "lucide-react";
 
 // Social media platforms with their brand colors and icons
@@ -360,6 +361,43 @@ This is a **markdown** component that supports:
     },
     editableProps: ["headerBgColor", "headerTitle", "headerDescription", "headerLinkText", "headerLinkUrl", "headerImage", "headerImageAlt", "products", "containerBgColor", "borderRadius", "style.padding"],
   },
+  Testimonial: {
+    name: "Testimonial",
+    type: "Testimonial",
+    icon: "Quote",
+    category: "content",
+    supportsTailwind: true,
+    defaultProps: {
+      imageSrc: "https://react.email/static/steve-jobs.jpg",
+      imageAlt: "Steve Jobs",
+      imageWidth: 320,
+      imageHeight: 320,
+      quote: "Design is not just what it looks like and feels like. Design is how it works. The people who are crazy enough to think they can change the world are the ones who do. Innovation distinguishes between a leader and a follower.",
+      authorName: "Steve Jobs",
+      authorTitle: "Co-founder of Apple",
+      quoteColor: "#374151",
+      authorNameColor: "#1f2937",
+      authorTitleColor: "#4b5563",
+      style: {
+        margin: "12px",
+        padding: "16px 0",
+      },
+    },
+    editableProps: [
+      "imageSrc",
+      "imageAlt",
+      "imageWidth",
+      "imageHeight",
+      "quote",
+      "authorName",
+      "authorTitle",
+      "quoteColor",
+      "authorNameColor",
+      "authorTitleColor",
+      "style.margin",
+      "style.padding",
+    ],
+  },
 
   // Action Components
   Button: {
@@ -658,6 +696,7 @@ export const getComponentIcon = (iconName: string) => {
     ListOrdered: ListOrdered,
     LayoutGrid: LayoutGrid,
     Megaphone: Megaphone,
+    Quote: Quote,
   };
   return icons[iconName] || Type;
 };

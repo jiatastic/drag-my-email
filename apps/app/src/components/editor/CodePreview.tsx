@@ -3,7 +3,7 @@
 import type { EmailComponent, TailwindConfig, EmailGlobalStyles } from "@/types";
 import { generateFullEmailJSX } from "@/lib/email-renderer";
 import { ScrollArea, Button } from "@react-email-builder/ui";
-import { Copy, Check, FileCode2, FileText, Circle, Pencil, Eye } from "lucide-react";
+import { Copy, Check, FileCode2, FileText, Circle, Pencil, Eye, Download, Save } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import prettier from "prettier/standalone";
@@ -82,9 +82,10 @@ interface CodePreviewProps {
   components: EmailComponent[];
   tailwindConfig?: TailwindConfig;
   globalStyles?: EmailGlobalStyles;
+  onApplyCode?: (components: EmailComponent[]) => void;
 }
 
-export function CodePreview({ components, tailwindConfig, globalStyles }: CodePreviewProps) {
+export function CodePreview({ components, tailwindConfig, globalStyles, onApplyCode }: CodePreviewProps) {
   const [copied, setCopied] = useState<"jsx" | "html" | null>(null);
   const [activeTab, setActiveTab] = useState<"jsx" | "html">("jsx");
   const [htmlCode, setHtmlCode] = useState<string>("<!-- Loading... -->");
@@ -148,6 +149,505 @@ export function CodePreview({ components, tailwindConfig, globalStyles }: CodePr
     await navigator.clipboard.writeText(text);
     setCopied(type);
     setTimeout(() => setCopied(null), 2000);
+  };
+
+  const downloadCode = (text: string, type: "jsx" | "html") => {
+    const filename = type === "jsx" ? "email.tsx" : "email.html";
+    const blob = new Blob([text], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Parse HTML code and convert to EmailComponent structure
+  const parseHtmlToComponents = (html: string): EmailComponent[] => {
+    try {
+      // Create a temporary DOM parser
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, "text/html");
+      
+      // Find the Container element (main content wrapper inside body)
+      // react-email renders content inside body > div (Container)
+      const container = doc.querySelector("body > div[style*='max-width'], body > div > div") || 
+                       doc.querySelector("body > div") || 
+                       doc.body;
+      
+      // Get direct children of container (skip nested wrappers)
+      let containerChildren: Element[] = [];
+      if (container && container.children.length > 0) {
+        containerChildren = Array.from(container.children) as Element[];
+      } else if (container && container.tagName.toLowerCase() === "div") {
+        // If container itself is a div with content, use it
+        containerChildren = [container];
+      }
+      
+      // Component type mapping from HTML tags to component types
+      const tagToComponentType: Record<string, string> = {
+        "div": "Section",
+        "h1": "Heading",
+        "h2": "Heading",
+        "h3": "Heading",
+        "h4": "Heading",
+        "h5": "Heading",
+        "h6": "Heading",
+        "p": "Text",
+        "a": "Link",
+        "button": "Button",
+        "img": "Image",
+        "hr": "Hr",
+        "table": "Row", // ResponsiveRow renders as table
+        "tr": "Row",
+        "td": "Column", // ResponsiveColumn renders as td
+      };
+
+      let idCounter = 0;
+      const generateId = () => `component-${Date.now()}-${idCounter++}-${Math.random().toString(36).substr(2, 9)}`;
+
+      const parseElement = (element: Element, depth: number = 0): EmailComponent | null => {
+        const tagName = element.tagName.toLowerCase();
+        
+        // Skip script, style, and other non-content tags
+        if (["script", "style", "head", "meta", "title", "body", "html"].includes(tagName)) {
+          return null;
+        }
+
+        // Check if this is a ResponsiveRow (table with specific classes)
+        const className = element.className?.toString() || "";
+        const isResponsiveRow = tagName === "table" && (
+          className.includes("mx-[12px]") || 
+          className.includes("my-[16px]") ||
+          element.getAttribute("role") === "presentation"
+        );
+        
+        // Check if this is a ResponsiveColumn (td with specific structure)
+        const isResponsiveColumn = tagName === "td" && (
+          className.includes("pr-[24px]") ||
+          className.includes("w-64") ||
+          element.parentElement?.tagName.toLowerCase() === "tr"
+        );
+
+        // Map tag to component type
+        let componentType = tagToComponentType[tagName] || "Section";
+        
+        // Override for responsive components
+        if (isResponsiveRow) {
+          componentType = "Row";
+        } else if (isResponsiveColumn) {
+          componentType = "Column";
+        }
+        
+        // Special handling for headings
+        if (tagName.startsWith("h") && tagName.length === 2 && !isResponsiveRow) {
+          componentType = "Heading";
+        }
+
+        // Extract props
+        const props: Record<string, any> = {};
+        const style: Record<string, string> = {};
+        
+        // Extract className
+        const classNameAttr = element.getAttribute("class");
+        if (classNameAttr) {
+          props.className = classNameAttr;
+        }
+
+        // Extract style attributes
+        const styleAttr = element.getAttribute("style");
+        if (styleAttr) {
+          styleAttr.split(";").forEach(rule => {
+            const trimmed = rule.trim();
+            if (!trimmed) return;
+            const [key, ...valueParts] = trimmed.split(":");
+            const value = valueParts.join(":").trim();
+            if (key && value) {
+              const camelKey = key.trim().replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+              style[camelKey] = value;
+            }
+          });
+          if (Object.keys(style).length > 0) {
+            props.style = style;
+          }
+        }
+
+        // Extract specific attributes based on component type
+        if (tagName === "img") {
+          props.src = element.getAttribute("src") || "";
+          props.alt = element.getAttribute("alt") || "";
+          const width = element.getAttribute("width");
+          const height = element.getAttribute("height");
+          if (width) props.width = width;
+          if (height) props.height = height;
+          componentType = "Image";
+        } else if (tagName === "a") {
+          props.href = element.getAttribute("href") || "#";
+          componentType = "Link";
+        } else if (componentType === "Heading" && tagName.match(/^h[1-6]$/)) {
+          props.as = tagName;
+        } else if (tagName === "button") {
+          componentType = "Button";
+          const href = element.getAttribute("href");
+          if (href) props.href = href;
+        }
+
+        // Extract text content (only if no element children)
+        const hasElementChildren = Array.from(element.children).length > 0;
+        if (!hasElementChildren) {
+          const textNodes = Array.from(element.childNodes)
+            .filter(node => node.nodeType === Node.TEXT_NODE)
+            .map(node => node.textContent?.trim())
+            .filter(Boolean);
+          
+          if (textNodes.length > 0) {
+            props.children = textNodes.join(" ");
+          }
+        }
+
+        // Parse children (but skip text nodes, we already handled them)
+        const children: EmailComponent[] = [];
+        Array.from(element.children).forEach(child => {
+          const childComponent = parseElement(child as Element, depth + 1);
+          if (childComponent) {
+            children.push(childComponent);
+          }
+        });
+
+        const component: EmailComponent = {
+          id: generateId(),
+          type: componentType,
+          props,
+        };
+
+        if (children.length > 0) {
+          component.children = children;
+        }
+
+        return component;
+      };
+
+      const parsedComponents: EmailComponent[] = [];
+      containerChildren.forEach(child => {
+        const component = parseElement(child as Element);
+        if (component) {
+          parsedComponents.push(component);
+        }
+      });
+
+      return parsedComponents.length > 0 ? parsedComponents : components;
+    } catch (error) {
+      console.error("Error parsing HTML:", error);
+      alert("Failed to parse code. Please check the syntax.");
+      return components;
+    }
+  };
+
+  // Parse JSX code and convert to EmailComponent structure
+  const parseJsxToComponents = (jsxCode: string): EmailComponent[] => {
+    try {
+      // Extract the JSX content inside Container
+      // Look for content between <Container> and </Container>
+      const containerMatch = jsxCode.match(/<Container[^>]*>([\s\S]*?)<\/Container>/);
+      if (!containerMatch) {
+        // Try to find content without Container wrapper
+        const bodyMatch = jsxCode.match(/<Body[^>]*>([\s\S]*?)<\/Body>/);
+        if (bodyMatch) {
+          return parseJsxContent(bodyMatch[1]);
+        }
+        // If no Container or Body, try to parse the entire code
+        return parseJsxContent(jsxCode);
+      }
+      
+      return parseJsxContent(containerMatch[1]);
+    } catch (error) {
+      console.error("Error parsing JSX:", error);
+      throw error;
+    }
+  };
+
+  // Parse JSX content string with better nested structure handling
+  const parseJsxContent = (content: string): EmailComponent[] => {
+    let idCounter = 0;
+    const generateId = () => `component-${Date.now()}-${idCounter++}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Component type mapping from JSX tags to component types
+    const jsxTagToComponentType: Record<string, string> = {
+      "Container": "Container",
+      "Section": "Section",
+      "ResponsiveRow": "Row",
+      "Row": "Row",
+      "ResponsiveColumn": "Column",
+      "Column": "Column",
+      "Heading": "Heading",
+      "Text": "Text",
+      "Button": "Button",
+      "Link": "Link",
+      "Img": "Image",
+      "Image": "Image",
+      "Hr": "Hr",
+      "Divider": "Hr",
+    };
+
+    const parseElement = (elementStr: string, depth: number = 0): EmailComponent | null => {
+      // Find the opening tag
+      const openTagMatch = elementStr.match(/^<(\w+)([^>]*?)(\/>|>)/);
+      if (!openTagMatch) return null;
+      
+      const [openTag, tagName, attributesStr, isSelfClosing] = openTagMatch;
+      
+      // Skip wrapper tags
+      if (["Tailwind", "Html", "Head", "Body", "Container"].includes(tagName) && depth === 0) {
+        // Extract content inside and parse recursively
+        const contentMatch = elementStr.match(/^<[^>]+>([\s\S]*?)<\/\w+>/);
+        if (contentMatch) {
+          return parseJsxContent(contentMatch[1])[0] || null;
+        }
+        return null;
+      }
+      
+      const componentType = jsxTagToComponentType[tagName] || "Section";
+      
+      // Parse attributes
+      const props: Record<string, any> = {};
+      const style: Record<string, string> = {};
+      
+      // Parse className
+      const classNameMatch = attributesStr.match(/className=["']([^"']+)["']/);
+      if (classNameMatch) {
+        props.className = classNameMatch[1];
+      }
+      
+      // Parse style object (handle nested objects)
+      const styleMatch = attributesStr.match(/style=\{\{([^}]+(?:\{[^}]*\}[^}]*)*)\}\}/);
+      if (styleMatch) {
+        const styleContent = styleMatch[1];
+        styleContent.split(",").forEach(rule => {
+          const trimmed = rule.trim();
+          if (!trimmed) return;
+          const colonIndex = trimmed.indexOf(":");
+          if (colonIndex > 0) {
+            const key = trimmed.substring(0, colonIndex).trim();
+            const value = trimmed.substring(colonIndex + 1).trim().replace(/["']/g, "");
+            if (key && value) {
+              const camelKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+              style[camelKey] = value;
+            }
+          }
+        });
+        if (Object.keys(style).length > 0) {
+          props.style = style;
+        }
+      }
+      
+      // Parse string props
+      const stringPropRegex = /(\w+)=["']([^"']+)["']/g;
+      let propMatch;
+      while ((propMatch = stringPropRegex.exec(attributesStr)) !== null) {
+        const [, propName, propValue] = propMatch;
+        if (propName !== "className" && propName !== "style") {
+          props[propName] = propValue;
+        }
+      }
+      
+      // Parse numeric/boolean/expression props
+      const exprPropRegex = /(\w+)=\{([^}]+)\}/g;
+      while ((propMatch = exprPropRegex.exec(attributesStr)) !== null) {
+        const [, propName, propValue] = propMatch;
+        if (propName !== "style" && propName !== "className") {
+          const trimmed = propValue.trim();
+          if (trimmed === "true") props[propName] = true;
+          else if (trimmed === "false") props[propName] = false;
+          else if (!isNaN(Number(trimmed)) && trimmed !== "") {
+            props[propName] = Number(trimmed);
+          } else {
+            props[propName] = trimmed.replace(/["']/g, "");
+          }
+        }
+      }
+      
+      // Handle self-closing tags
+      if (isSelfClosing === "/>") {
+        const component: EmailComponent = {
+          id: generateId(),
+          type: componentType,
+          props,
+        };
+        return component;
+      }
+      
+      // Find matching closing tag and extract content
+      const remaining = elementStr.substring(openTag.length);
+      let depthCount = 0;
+      let pos = 0;
+      let contentStart = 0;
+      let contentEnd = 0;
+      
+      while (pos < remaining.length) {
+        const openMatch = remaining.substring(pos).match(/<(\w+)([^>]*?)(\/>|>)/);
+        const closeMatch = remaining.substring(pos).match(/<\/(\w+)>/);
+        
+        if (!openMatch && !closeMatch) break;
+        
+        const openPos = openMatch ? pos + openMatch.index! : Infinity;
+        const closePos = closeMatch ? pos + closeMatch.index! : Infinity;
+        
+        if (openPos < closePos) {
+          // Found opening tag
+          if (openMatch![1] === tagName) {
+            depthCount++;
+            if (depthCount === 1) contentStart = pos + openMatch![0].length;
+          }
+          pos = openPos + openMatch![0].length;
+        } else {
+          // Found closing tag
+          if (closeMatch![1] === tagName) {
+            depthCount--;
+            if (depthCount === 0) {
+              contentEnd = pos;
+              break;
+            }
+          }
+          pos = closePos + closeMatch![0].length;
+        }
+      }
+      
+      const innerContent = remaining.substring(contentStart, contentEnd).trim();
+      
+      // Extract text content if no JSX elements
+      if (innerContent && !/<[^>]+>/.test(innerContent)) {
+        props.children = innerContent;
+      }
+      
+      // Handle specific component types
+      if (componentType === "Image" && tagName === "Img") {
+        // Image props already parsed
+      } else if (componentType === "Heading") {
+        props.as = props.as || "h1";
+      }
+      
+      const component: EmailComponent = {
+        id: generateId(),
+        type: componentType,
+        props,
+      };
+      
+      // Parse nested children
+      if (innerContent && /<[^>]+>/.test(innerContent)) {
+        const childComponents = parseJsxContent(innerContent);
+        if (childComponents.length > 0) {
+          component.children = childComponents;
+        }
+      }
+      
+      return component;
+    };
+    
+    // Find all top-level JSX elements
+    const components: EmailComponent[] = [];
+    let remaining = content.trim();
+    
+    while (remaining.length > 0) {
+      // Skip whitespace
+      remaining = remaining.replace(/^\s+/, "");
+      if (!remaining.length) break;
+      
+      // Find next element
+      const elementMatch = remaining.match(/<(\w+)/);
+      if (!elementMatch) break;
+      
+      const startPos = elementMatch.index!;
+      const tagName = elementMatch[1];
+      
+      // Skip wrapper tags at top level
+      if (["Tailwind", "Html", "Head", "Body", "Container"].includes(tagName)) {
+        // Find matching closing tag
+        let depth = 0;
+        let pos = startPos;
+        while (pos < remaining.length) {
+          const openMatch = remaining.substring(pos).match(/<(\w+)([^>]*?)(\/>|>)/);
+          const closeMatch = remaining.substring(pos).match(/<\/(\w+)>/);
+          
+          if (!openMatch && !closeMatch) break;
+          
+          const openPos = openMatch ? pos + openMatch.index! : Infinity;
+          const closePos = closeMatch ? pos + closeMatch.index! : Infinity;
+          
+          if (openPos < closePos && openMatch![1] === tagName) {
+            depth++;
+            pos = openPos + openMatch![0].length;
+          } else if (closePos < openPos && closeMatch![1] === tagName) {
+            depth--;
+            if (depth === 0) {
+              remaining = remaining.substring(closePos + closeMatch![0].length);
+              break;
+            }
+            pos = closePos + closeMatch![0].length;
+          } else {
+            pos = Math.min(openPos, closePos) + (openPos < closePos ? openMatch![0].length : closeMatch![0].length);
+          }
+        }
+        continue;
+      }
+      
+      // Parse the element
+      const element = parseElement(remaining.substring(startPos));
+      if (element) {
+        components.push(element);
+        // Move past this element
+        const elementEnd = remaining.indexOf(`</${tagName}>`, startPos);
+        if (elementEnd > -1) {
+          remaining = remaining.substring(elementEnd + `</${tagName}>`.length);
+        } else {
+          // Self-closing tag
+          const selfCloseMatch = remaining.substring(startPos).match(/\/>/);
+          if (selfCloseMatch) {
+            remaining = remaining.substring(startPos + selfCloseMatch.index! + 2);
+          } else {
+            break;
+          }
+        }
+      } else {
+        break;
+      }
+    }
+    
+    return components;
+  };
+
+  // Apply edited code to components
+  const handleApplyCode = () => {
+    if (!onApplyCode) {
+      alert("Code application is not available. Please use the download button to save your code.");
+      return;
+    }
+
+    try {
+      const codeToParse = activeTab === "jsx" ? editedJsxCode : editedHtmlCode;
+      
+      if (activeTab === "jsx") {
+        // Parse JSX
+        const parsedComponents = parseJsxToComponents(codeToParse);
+        if (parsedComponents.length > 0) {
+          onApplyCode(parsedComponents);
+          setIsEditing(false);
+          alert("Code applied successfully! Check the Edit and Preview tabs.");
+        } else {
+          alert("No components found in the code. Please check the syntax.");
+        }
+      } else {
+        // Parse HTML
+        const parsedComponents = parseHtmlToComponents(codeToParse);
+        onApplyCode(parsedComponents);
+        setIsEditing(false);
+        alert("Code applied successfully! Check the Edit and Preview tabs.");
+      }
+    } catch (error) {
+      console.error("Error applying code:", error);
+      alert(`Failed to apply code: ${error instanceof Error ? error.message : "Please check the syntax."}`);
+    }
   };
 
   const handleEditToggle = () => {
@@ -272,6 +772,27 @@ export function CodePreview({ components, tailwindConfig, globalStyles }: CodePr
               </>
             )}
           </Button>
+          {isEditing && onApplyCode ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-3 text-xs bg-[#28a745] hover:bg-[#218838] text-white rounded gap-1.5"
+              onClick={handleApplyCode}
+            >
+              <Save className="h-3.5 w-3.5" />
+              Apply
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-3 text-xs bg-[#28a745] hover:bg-[#218838] text-white rounded gap-1.5"
+              onClick={() => downloadCode(currentCode, activeTab)}
+            >
+              <Download className="h-3.5 w-3.5" />
+              Download
+            </Button>
+          )}
         </div>
       </div>
 

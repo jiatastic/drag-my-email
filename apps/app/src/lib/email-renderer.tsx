@@ -535,6 +535,94 @@ export function renderComponent(component: EmailComponent): React.ReactElement {
     );
   }
   
+  // Special handling for Testimonial component - exact match to provided code
+  if (component.type === "Testimonial") {
+    const props = component.props || {};
+    const imageSrc = props.imageSrc || "https://react.email/static/steve-jobs.jpg";
+    const imageAlt = props.imageAlt || "Steve Jobs";
+    const imageWidth = props.imageWidth || 320;
+    const imageHeight = props.imageHeight || 320;
+    const quote = props.quote || "Design is not just what it looks like and feels like. Design is how it works.";
+    const authorName = props.authorName || "Steve Jobs";
+    const authorTitle = props.authorTitle || "Co-founder of Apple";
+    const quoteColor = props.quoteColor || "#374151";
+    const authorNameColor = props.authorNameColor || "#1f2937";
+    const authorTitleColor = props.authorTitleColor || "#4b5563";
+    const style = props.style || {};
+
+    return React.createElement(
+      ResponsiveRow,
+      {
+        key: component.id,
+        className: "mx-[12px] my-[16px] text-[14px] text-gray-600",
+        style: {
+          margin: style.margin || "12px",
+          padding: style.padding || "16px 0",
+        },
+      },
+      // Left column - Image
+      React.createElement(
+        ResponsiveColumn,
+        {
+          className: "mt-0 mr-[24px] mb-[24px] ml-0 w-64 overflow-hidden rounded-3xl",
+        },
+        React.createElement(Img, {
+          src: imageSrc,
+          width: imageWidth,
+          height: imageHeight,
+          alt: imageAlt,
+          className: "h-[320px] w-full object-cover object-center",
+          style: {
+            height: `${imageHeight}px`,
+            width: "100%",
+            objectFit: "cover" as const,
+            objectPosition: "center",
+          },
+        })
+      ),
+      // Right column - Text content
+      React.createElement(
+        ResponsiveColumn,
+        {
+          className: "pr-[24px]",
+        },
+        // Quote text
+        React.createElement(
+          Text,
+          {
+            className: "mx-0 my-0 mb-[24px] text-left text-[16px] leading-[1.625] font-light text-gray-700",
+            style: { 
+              color: quoteColor,
+            },
+          },
+          quote
+        ),
+        // Author name
+        React.createElement(
+          Text,
+          {
+            className: "mx-0 mt-0 mb-[4px] text-left text-[16px] font-semibold text-gray-800",
+            style: { 
+              color: authorNameColor,
+            },
+          },
+          authorName
+        ),
+        // Author title
+        React.createElement(
+          Text,
+          {
+            className: "m-0 text-left text-[14px] text-gray-600",
+            style: { 
+              color: authorTitleColor,
+            },
+          },
+          authorTitle
+        )
+      )
+    );
+  }
+  
   const Component = componentMap[component.type];
   if (!Component) {
     return React.createElement(Text, { key: component.id }, `Unknown component: ${component.type}`);
@@ -669,6 +757,42 @@ export function componentsToJSX(components: EmailComponent[], indent = 0): strin
   let jsx = "";
 
   components.forEach((component) => {
+    // Special handling for Testimonial component
+    if (component.type === "Testimonial") {
+      const props = component.props || {};
+      const imageSrc = props.imageSrc || "https://react.email/static/steve-jobs.jpg";
+      const imageAlt = props.imageAlt || "Steve Jobs";
+      const imageWidth = props.imageWidth || 320;
+      const imageHeight = props.imageHeight || 320;
+      const quote = props.quote || "Design is not just what it looks like and feels like. Design is how it works.";
+      const authorName = props.authorName || "Steve Jobs";
+      const authorTitle = props.authorTitle || "Co-founder of Apple";
+
+      jsx += `${spaces}<ResponsiveRow className="mx-[12px] my-[16px] text-[14px] text-gray-600">\n`;
+      jsx += `${spaces}  <ResponsiveColumn className="mt-0 mr-[24px] mb-[24px] ml-0 w-64 overflow-hidden rounded-3xl">\n`;
+      jsx += `${spaces}    <Img\n`;
+      jsx += `${spaces}      src="${imageSrc}"\n`;
+      jsx += `${spaces}      width={${imageWidth}}\n`;
+      jsx += `${spaces}      height={${imageHeight}}\n`;
+      jsx += `${spaces}      alt="${imageAlt}"\n`;
+      jsx += `${spaces}      className="h-[320px] w-full object-cover object-center"\n`;
+      jsx += `${spaces}    />\n`;
+      jsx += `${spaces}  </ResponsiveColumn>\n`;
+      jsx += `${spaces}  <ResponsiveColumn className="pr-[24px]">\n`;
+      jsx += `${spaces}    <Text className="mx-0 my-0 mb-[24px] text-left text-[16px] leading-[1.625] font-light text-gray-700">\n`;
+      jsx += `${spaces}      ${quote}\n`;
+      jsx += `${spaces}    </Text>\n`;
+      jsx += `${spaces}    <Text className="mx-0 mt-0 mb-[4px] text-left text-[16px] font-semibold text-gray-800">\n`;
+      jsx += `${spaces}      ${authorName}\n`;
+      jsx += `${spaces}    </Text>\n`;
+      jsx += `${spaces}    <Text className="m-0 text-left text-[14px] text-gray-600">\n`;
+      jsx += `${spaces}      ${authorTitle}\n`;
+      jsx += `${spaces}    </Text>\n`;
+      jsx += `${spaces}  </ResponsiveColumn>\n`;
+      jsx += `${spaces}</ResponsiveRow>\n`;
+      return;
+    }
+
     // Map component types to their JSX equivalents
     let componentType = component.type;
     if (componentType === "Image") componentType = "Img";
