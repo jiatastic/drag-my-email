@@ -899,7 +899,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                 <Label className="text-xs text-muted-foreground">Number of Columns</Label>
                 <Select
                   value={String(props.columnCount || 2)}
-                  onChange={(v) => {
+                  onValueChange={(v: string) => {
                     const newCount = parseInt(v);
                     const currentCount = component.children?.length || 0;
                     const gap = props.columnGap || 20;
@@ -947,12 +947,16 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                       children: newChildren,
                     });
                   }}
-                  options={[
-                    { label: '2 Columns', value: '2' },
-                    { label: '3 Columns', value: '3' },
-                    { label: '4 Columns', value: '4' },
-                  ]}
-                />
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2">2 Columns</SelectItem>
+                    <SelectItem value="3">3 Columns</SelectItem>
+                    <SelectItem value="4">4 Columns</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Gap Between Columns</Label>
@@ -1001,13 +1005,21 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                       <div className="flex-1 space-y-1.5">
                         <Select
                           value={p.platform}
-                          onChange={(v) => {
+                          onValueChange={(v: string) => {
                             const newPlatforms = [...(props.platforms || [])];
                             newPlatforms[idx] = { ...newPlatforms[idx], platform: v };
                             updateProp("platforms", newPlatforms);
                           }}
-                          options={allSocialPlatforms.map(sp => ({ label: sp.name, value: sp.key }))}
-                        />
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {allSocialPlatforms.map(sp => (
+                              <SelectItem key={sp.key} value={sp.key}>{sp.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <Input
                           value={p.url}
                           onChange={(e) => {
@@ -1900,21 +1912,25 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                           const match = String(borderTop).match(/^(\d+)px/);
                           return match ? match[1] : "1";
                         })()}
-                        onChange={(v) => {
+                        onValueChange={(v: string) => {
                           const borderTop = style.borderTop || "1px solid #e1e8ed";
                           const next = String(borderTop).match(/^\d+px/)
                             ? String(borderTop).replace(/^\d+px/, `${v}px`)
                             : `${v}px ${borderTop}`;
                           updateProp("style.borderTop", next);
                         }}
-                        options={[
-                          { label: "0px", value: "0" },
-                          { label: "1px", value: "1" },
-                          { label: "2px", value: "2" },
-                          { label: "3px", value: "3" },
-                          { label: "4px", value: "4" },
-                        ]}
-                      />
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0">0px</SelectItem>
+                          <SelectItem value="1">1px</SelectItem>
+                          <SelectItem value="2">2px</SelectItem>
+                          <SelectItem value="3">3px</SelectItem>
+                          <SelectItem value="4">4px</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </InputRow>
                 </>

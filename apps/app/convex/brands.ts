@@ -141,7 +141,7 @@ export const upsertFromImport = mutation({
 
 export const importFromUrl = action({
   args: { url: v.string() },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{ brandId: string; plan: "free" | "pro"; limit: number }> => {
     // Auth
     const userId = await auth.getUserId(ctx as any);
     if (!userId) throw new Error("Not authenticated");
@@ -157,7 +157,7 @@ export const importFromUrl = action({
     const existing = await ctx.runQuery(api.brands.getByDomain, { domain });
 
     // Entitlements (stubbed via userSettings.plan)
-    const settings = await ctx.runQuery(api.userSettings.get, {});
+    const settings: { plan?: "free" | "pro" } | null = await ctx.runQuery(api.userSettings.get, {});
     const plan: "free" | "pro" = settings?.plan === "pro" ? "pro" : "free";
     const limit = getBrandLimit(plan);
 
@@ -189,7 +189,8 @@ export const importFromUrl = action({
       }),
     });
 
-    const payload = await response.json().catch(() => null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const payload: any = await response.json().catch(() => null);
     if (!response.ok) {
       const message =
         payload?.error ||
@@ -208,7 +209,7 @@ export const importFromUrl = action({
       metadata?.title ||
       domain;
 
-    const brandId = await ctx.runMutation(api.brands.upsertFromImport, {
+    const brandId: string = await ctx.runMutation(api.brands.upsertFromImport, {
       domain,
       url: parsedUrl.toString(),
       name,

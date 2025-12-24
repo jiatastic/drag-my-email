@@ -150,7 +150,7 @@ export function AIAssistantPanel({ components, globalStyles, onApplyTemplate, on
 
   const brandContext = useMemo<BrandContext | undefined>(() => {
     if (!brands || !selectedBrandId) return undefined;
-    const brand = brands.find((b) => b._id === selectedBrandId);
+    const brand = brands.find((b: { _id: string }) => b._id === selectedBrandId);
     if (!brand) return undefined;
 
     const branding = safeJsonParse<any>(brand.brandingJson);
@@ -521,7 +521,7 @@ export function AIAssistantPanel({ components, globalStyles, onApplyTemplate, on
                     <SelectValue placeholder="Select brand" />
                   </SelectTrigger>
                   <SelectContent>
-                    {brands.map((b) => (
+                    {brands.map((b: { _id: string; name: string }) => (
                       <SelectItem key={b._id} value={b._id}>
                         {b.name}
                       </SelectItem>
@@ -549,7 +549,7 @@ export function AIAssistantPanel({ components, globalStyles, onApplyTemplate, on
             </div>
           ) : (
             <div className="space-y-2">
-              {chatHistories.map((chat) => (
+              {chatHistories.map((chat: { _id: string; title: string; messages: string; updatedAt: number }) => (
                 <div
                   key={chat._id}
                   role="button"

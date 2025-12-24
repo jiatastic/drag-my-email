@@ -384,6 +384,9 @@ const DEFAULT_TESTIMONIAL_CONTENT = {
     "Design is not just what it looks like and feels like. Design is how it works. The people who are crazy enough to think they can change the world are the ones who do. Innovation distinguishes between a leader and a follower.",
   authorName: "Steve Jobs",
   authorTitle: "Co-founder of Apple",
+  quoteColor: "#374151",
+  authorNameColor: "#1f2937",
+  authorTitleColor: "#4b5563",
 };
 
 // Draggable email component for Edit mode

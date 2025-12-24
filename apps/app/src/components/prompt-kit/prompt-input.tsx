@@ -103,7 +103,11 @@ export const PromptInput = ({
           "type" in child &&
           child.type === PromptInputTextarea
         ) {
-          const childProps = (child as React.ReactElement).props;
+          const childProps = (child as React.ReactElement).props as {
+            onSubmit?: () => void;
+            value?: string;
+            onChange?: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+          };
           return React.cloneElement(child as React.ReactElement, {
             // Only inject onSubmit if child doesn't already have it
             ...(childProps.onSubmit === undefined && onSubmit && { onSubmit }),

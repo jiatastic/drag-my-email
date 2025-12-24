@@ -316,7 +316,7 @@ export function TemplateManager({ components, onLoadTemplate }: TemplateManagerP
               </div>
             ) : (
               <div className="space-y-2">
-                {cloudTemplates.map((template) => {
+                {cloudTemplates.map((template: { _id: string; name: string; components: string; description?: string; createdAt: number; updatedAt: number }) => {
                   const templateComponents = JSON.parse(template.components);
                   return (
                     <div
