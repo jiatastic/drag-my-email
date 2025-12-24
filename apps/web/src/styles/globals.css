@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -14,7 +12,7 @@
     --card-foreground: #14171a;
     --popover: #ffffff;
     --popover-foreground: #14171a;
-    --primary: #007aff;
+    --primary: #1e9df1;
     --primary-foreground: #ffffff;
     --secondary: #14171a;
     --secondary-foreground: #ffffff;
@@ -26,7 +24,7 @@
     --destructive-foreground: #ffffff;
     --border: #e1e8ed;
     --input: #e1e8ed;
-    --ring: #007aff;
+    --ring: #1e9df1;
     
     /* Charts */
     --chart-1: #1e9df1;
@@ -46,12 +44,12 @@
     --sidebar-ring: #1e9df1;
     
     /* Border Radius */
-    --radius: 0.75rem;
+    --radius: 1rem;
     
-    /* Fonts - Twitter Theme */
-    --font-sans: "Open Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    /* Fonts - Geist */
+    --font-sans: var(--geist-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
     --font-serif: "Georgia", serif;
-    --font-mono: "Menlo", monospace;
+    --font-mono: var(--geist-mono, "Menlo", monospace);
   }
 
   .dark {
@@ -62,7 +60,7 @@
     --card-foreground: #ffffff;
     --popover: #15202b;
     --popover-foreground: #ffffff;
-    --primary: #007aff;
+    --primary: #1e9df1;
     --primary-foreground: #ffffff;
     --secondary: #8899a6;
     --secondary-foreground: #15202b;
@@ -74,7 +72,7 @@
     --destructive-foreground: #ffffff;
     --border: #38444d;
     --input: #38444d;
-    --ring: #007aff;
+    --ring: #1e9df1;
     
     /* Charts - Dark */
     --chart-1: #1e9df1;
@@ -101,6 +99,11 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-sans);
+  }
+
+  /* Remove shadows from all buttons */
+  button {
+    box-shadow: none !important;
   }
 }
 

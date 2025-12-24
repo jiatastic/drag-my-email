@@ -128,8 +128,9 @@ const DialogContent = React.forwardRef<
       <div
         ref={ref}
         className={cn(
-          "fixed z-50 w-full max-w-lg bg-background rounded-lg shadow-lg border",
-          "p-6 animate-in fade-in-0 zoom-in-95",
+          // On small screens, avoid edge-to-edge modals by adding a side margin.
+          "fixed z-50 w-[calc(100%-2rem)] sm:w-full max-w-lg bg-background rounded-lg shadow-lg border",
+          "max-h-[85vh] overflow-y-auto p-6 animate-in fade-in-0 zoom-in-95",
           className
         )}
         onClick={(e) => e.stopPropagation()}

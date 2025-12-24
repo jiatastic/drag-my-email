@@ -265,9 +265,9 @@ This is a **markdown** component that supports:
     supportsTailwind: true,
     defaultProps: {
       stats: [
-        { value: "42", title: "The Answer", description: "" },
-        { value: "10M", title: "Days for Earth Mark II", description: "" },
-        { value: "2^276,709:1", title: "Improbability Drive odds", description: "" },
+        { value: "10M+", title: "Active Users", description: "Trusted by millions worldwide" },
+        { value: "99.9%", title: "Uptime", description: "Enterprise reliability" },
+        { value: "150+", title: "Countries", description: "Global presence" },
       ],
       style: {
         padding: "24px 0",
@@ -448,13 +448,14 @@ This is a **markdown** component that supports:
     category: "media",
     supportsTailwind: true,
     defaultProps: {
-      src: "/logo.svg",
-      alt: "Logo",
-      width: "32",
-      height: "32",
+      src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='40' viewBox='0 0 120 40'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23818cf8'/%3E%3Cstop offset='100%25' stop-color='%234f46e5'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='120' height='40' rx='8' fill='%231a1a1a'/%3E%3Ccircle cx='20' cy='20' r='12' fill='url(%23g)'/%3E%3Cpath d='M16 26L20 14L24 26M17.5 22H22.5' stroke='white' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ctext x='40' y='25' fill='white' font-family='system-ui,-apple-system,sans-serif' font-size='14' font-weight='600'%3EACME%3C/text%3E%3C/svg%3E",
+      alt: "Acme Logo",
+      width: "120",
+      height: "40",
       style: {
         borderRadius: "0",
         maxWidth: "100%",
+        height: "auto",
       },
     },
     editableProps: ["className", "src", "alt", "width", "height", "style.borderRadius"],
@@ -509,30 +510,30 @@ This is a **markdown** component that supports:
         borderTop: "1px solid #e6ebf1",
       },
     },
-    // Pre-built children for the footer
+    // Pre-built children for the footer - using Acme branding
     defaultChildren: [
       {
         type: "Image",
         props: {
-          src: "https://react.email/static/logo-without-background.png",
-          alt: "Company Logo",
-          width: "42",
-          height: "42",
-          style: { margin: "0 auto 16px auto", display: "block" },
+          src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23818cf8'/%3E%3Cstop offset='100%25' stop-color='%234f46e5'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='48' height='48' rx='12' fill='url(%23g)'/%3E%3Cpath d='M18 32L24 16L30 32M20.5 27H27.5' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E",
+          alt: "Acme Logo",
+          width: "48",
+          height: "48",
+          style: { margin: "0 auto 16px auto", display: "block", borderRadius: "8px" },
         },
       },
       {
         type: "Heading",
         props: {
           as: "h3",
-          children: "Acme Corporation",
+          children: "Acme Inc.",
           style: { fontSize: "16px", fontWeight: "bold", color: "#1a1a1a", margin: "0 0 4px 0", textAlign: "center" },
         },
       },
       {
         type: "Text",
         props: {
-          children: "Think different",
+          children: "Building the future, one product at a time.",
           style: { fontSize: "14px", color: "#666666", margin: "0 0 20px 0", textAlign: "center" },
         },
       },
@@ -546,14 +547,14 @@ This is a **markdown** component that supports:
       {
         type: "Text",
         props: {
-          children: "123 Main Street, Anytown, CA 12345",
+          children: "123 Innovation Drive, San Francisco, CA 94102",
           style: { fontSize: "12px", color: "#8898aa", margin: "0 0 4px 0", textAlign: "center" },
         },
       },
       {
         type: "Text",
         props: {
-          children: "mail@example.com • +1 234 567 89",
+          children: "hello@acme.com • +1 (555) 123-4567",
           style: { fontSize: "12px", color: "#8898aa", margin: "0", textAlign: "center" },
         },
       },
@@ -614,25 +615,25 @@ This is a **markdown** component that supports:
           {
             type: "Image",
             props: {
-              src: "https://react.email/static/logo-without-background.png",
-              alt: "Logo",
-              width: "32",
-              height: "32",
-              style: { marginBottom: "12px" },
+              src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23818cf8'/%3E%3Cstop offset='100%25' stop-color='%234f46e5'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='40' height='40' rx='10' fill='url(%23g)'/%3E%3Cpath d='M15 27L20 13L25 27M17 23H23' stroke='white' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E",
+              alt: "Acme Logo",
+              width: "40",
+              height: "40",
+              style: { marginBottom: "12px", borderRadius: "6px" },
             },
           },
           {
             type: "Heading",
             props: {
               as: "h4",
-              children: "Acme Corporation",
+              children: "Acme Inc.",
               style: { fontSize: "14px", fontWeight: "bold", color: "#1a1a1a", margin: "0 0 4px 0" },
             },
           },
           {
             type: "Text",
             props: {
-              children: "Think different",
+              children: "Building the future, one product at a time.",
               style: { fontSize: "12px", color: "#666666", margin: "0" },
             },
           },
@@ -654,14 +655,14 @@ This is a **markdown** component that supports:
           {
             type: "Text",
             props: {
-              children: "123 Main Street, Anytown, CA 12345",
+              children: "123 Innovation Drive, San Francisco, CA 94102",
               style: { fontSize: "12px", color: "#8898aa", margin: "0 0 4px 0" },
             },
           },
           {
             type: "Text",
             props: {
-              children: "mail@example.com • +1 234 567 89",
+              children: "hello@acme.com • +1 (555) 123-4567",
               style: { fontSize: "12px", color: "#8898aa", margin: "0" },
             },
           },

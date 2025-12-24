@@ -14,12 +14,14 @@
     "./tabs": "./src/tabs.tsx",
     "./scroll-area": "./src/scroll-area.tsx",
     "./resizable": "./src/resizable.tsx",
+    "./select": "./src/select.tsx",
     "./globals.css": "./src/globals.css"
   },
   "scripts": {
     "lint": "biome check src/"
   },
   "dependencies": {
+    "@radix-ui/react-select": "^2.1.8",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.468.0",

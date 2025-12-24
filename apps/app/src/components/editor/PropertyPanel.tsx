@@ -2,7 +2,7 @@
 
 import type { EmailComponent, EmailGlobalStyles } from "@/types";
 import { componentRegistry } from "@/lib/component-registry";
-import { Label, Input, Textarea, ScrollArea } from "@react-email-builder/ui";
+import { Label, Input, Textarea, ScrollArea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@react-email-builder/ui";
 import { 
   Settings2, Type, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   ChevronDown, Minus, Plus, Link2, Image as ImageIcon, ExternalLink,
@@ -22,13 +22,15 @@ function Section({ title, children, defaultOpen = true }: { title: string; child
   const [isOpen, setIsOpen] = useState(defaultOpen);
   
   return (
-    <div className="border-b border-gray-100 last:border-b-0">
+    <div className="border-b border-border last:border-b-0">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 py-2.5 flex items-center justify-between hover:bg-gray-50 transition-colors"
+        className="w-full px-4 py-2.5 flex items-center justify-between hover:bg-muted transition-colors"
       >
-        <span className="text-xs font-semibold text-gray-900 uppercase tracking-wide">{title}</span>
-        <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform ${isOpen ? '' : '-rotate-90'}`} />
+        <span className="text-xs font-semibold text-foreground uppercase tracking-wide">{title}</span>
+        <ChevronDown
+          className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${isOpen ? "" : "-rotate-90"}`}
+        />
       </button>
       {isOpen && (
         <div className="px-4 pb-4 space-y-3">
@@ -44,48 +46,132 @@ function InputRow({ children }: { children: React.ReactNode }) {
   return <div className="grid grid-cols-2 gap-2">{children}</div>;
 }
 
+type NumberInputMode = "css-length" | "number";
+
 // Number input with stepper and unit
-function NumberInput({ 
-  value, 
-  onChange, 
-  unit = "px", 
-  min, 
-  max, 
+// - mode="css-length": stores values like "16px" (unit auto appended), but the input shows only "16"
+// - mode="number": stores plain numbers (as string), while still showing an optional unit badge (e.g. "px")
+function NumberInput({
+  value,
+  onChange,
+  unit = "px",
+  min,
+  max,
   step = 1,
-  placeholder = "Auto"
-}: { 
-  value: string | number; 
-  onChange: (value: string) => void; 
+  placeholder = "Auto",
+  mode = "css-length",
+}: {
+  value: string | number;
+  onChange: (value: string) => void;
   unit?: string;
   min?: number;
   max?: number;
   step?: number;
   placeholder?: string;
+  mode?: NumberInputMode;
 }) {
-  const numericValue = typeof value === 'string' ? parseFloat(value.replace(/[^0-9.-]/g, '')) || 0 : value;
-  
-  const increment = () => onChange(`${numericValue + step}${unit}`);
-  const decrement = () => onChange(`${Math.max(min ?? -Infinity, numericValue - step)}${unit}`);
-  
+  const raw = value ?? "";
+  const rawStr = typeof raw === "number" ? String(raw) : String(raw);
+
+  // Compound CSS values (e.g. "14px 28px", "0 auto") should be treated as free text.
+  const isCompound = rawStr.trim().includes(" ");
+
+  const displayValue = (() => {
+    if (isCompound) return rawStr;
+    if (!rawStr) return "";
+    if (unit && rawStr.toLowerCase().endsWith(unit.toLowerCase())) {
+      return rawStr.slice(0, -unit.length);
+    }
+    return rawStr;
+  })();
+
+  const parseNumber = (s: string) => {
+    const cleaned = s.replace(/[^0-9.+-]/g, "");
+    const n = Number.parseFloat(cleaned);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const currentNumber = isCompound ? null : parseNumber(rawStr);
+
+  const clamp = (n: number) => {
+    let next = n;
+    if (typeof min === "number") next = Math.max(min, next);
+    if (typeof max === "number") next = Math.min(max, next);
+    return next;
+  };
+
+  const commitNumber = (n: number) => {
+    const next = clamp(n);
+    if (mode === "number") {
+      onChange(String(next));
+      return;
+    }
+    // css-length
+    if (unit) onChange(`${next}${unit}`);
+    else onChange(String(next));
+  };
+
+  const increment = () => commitNumber((currentNumber ?? 0) + step);
+  const decrement = () => commitNumber((currentNumber ?? 0) - step);
+
+  const showUnitBadge = !!unit && !isCompound;
+
   return (
-    <div className="flex items-center border border-gray-200 rounded-md overflow-hidden hover:border-gray-300 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20">
-      <button 
+    <div className="flex items-center border border-border rounded-md overflow-hidden focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20">
+      <button
+        type="button"
         onClick={decrement}
-        className="px-1.5 py-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors border-r border-gray-200"
+        disabled={isCompound}
+        className="px-1.5 py-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors border-r border-border"
+        aria-label="Decrease"
       >
         <Minus className="h-3 w-3" />
       </button>
       <input
         type="text"
-        value={value || ''}
-        onChange={(e) => onChange(e.target.value)}
+        inputMode="decimal"
+        value={displayValue || ""}
+        onChange={(e) => {
+          const nextRaw = e.target.value;
+          if (isCompound) {
+            // If the user typed only numbers separated by spaces, auto-append unit for css-length.
+            const tokens = nextRaw.trim().split(/\s+/).filter(Boolean);
+            const allNumeric = tokens.length > 0 && tokens.every((t) => /^[+-]?\d+(\.\d+)?$/.test(t));
+            if (mode === "css-length" && unit && allNumeric) {
+              onChange(tokens.map((t) => `${t}${unit}`).join(" "));
+              return;
+            }
+            onChange(nextRaw);
+            return;
+          }
+          const trimmed = nextRaw.trim();
+          if (trimmed === "") {
+            onChange("");
+            return;
+          }
+          // Only auto-commit when the user typed a complete number.
+          if (/^[+-]?\d+(\.\d+)?$/.test(trimmed)) {
+            const n = Number.parseFloat(trimmed);
+            if (Number.isFinite(n)) {
+              commitNumber(n);
+              return;
+            }
+          }
+          // Otherwise keep raw text (lets the user type naturally).
+          onChange(nextRaw);
+        }}
         placeholder={placeholder}
         className="flex-1 px-2 py-1.5 text-sm text-center w-full min-w-0 bg-transparent focus:outline-none"
       />
-      <span className="px-1.5 text-xs text-gray-400 border-l border-gray-200 bg-gray-50">{unit}</span>
-      <button 
+      {showUnitBadge && (
+        <span className="px-1.5 text-xs text-muted-foreground border-l border-border bg-muted">{unit}</span>
+      )}
+      <button
+        type="button"
         onClick={increment}
-        className="px-1.5 py-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors border-l border-gray-200"
+        disabled={isCompound}
+        className="px-1.5 py-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors border-l border-border"
+        aria-label="Increase"
       >
         <Plus className="h-3 w-3" />
       </button>
@@ -100,54 +186,57 @@ function ColorInput({ value, onChange }: { value: string; onChange: (value: stri
       <div className="relative shrink-0">
         <input
           type="color"
-          value={value || '#000000'}
+          value={value || "#000000"}
           onChange={(e) => onChange(e.target.value)}
-          className="w-8 h-8 rounded-md border border-gray-200 cursor-pointer appearance-none bg-transparent"
-          style={{ backgroundColor: value || '#ffffff' }}
+          className="w-8 h-8 rounded-md border border-border cursor-pointer appearance-none bg-transparent"
+          style={{ backgroundColor: value || "#ffffff" }}
         />
         <div 
-          className="absolute inset-0 rounded-md border border-gray-200 pointer-events-none"
-          style={{ backgroundColor: value || '#ffffff' }}
+          className="absolute inset-0 rounded-md border border-border pointer-events-none"
+          style={{ backgroundColor: value || "#ffffff" }}
         />
       </div>
       <input
         type="text"
-        value={value || ''}
+        value={value || ""}
         onChange={(e) => onChange(e.target.value)}
         placeholder="#000000"
-        className="flex-1 px-2 py-1.5 text-sm font-mono border border-gray-200 rounded-md bg-white hover:border-gray-300 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+        className="flex-1 px-2 py-1.5 text-sm font-mono border border-border rounded-md bg-background focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
       />
     </div>
   );
 }
 
-// Select dropdown
-function Select({ value, onChange, options }: { value: string; onChange: (value: string) => void; options: { label: string; value: string }[] }) {
+// Select dropdown wrapper for shadcn/ui Select
+function SelectDropdown({ value, onChange, options }: { value: string; onChange: (value: string) => void; options: { label: string; value: string }[] }) {
   return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-md bg-white hover:border-gray-300 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 12 12%22><path fill=%22%23666%22 d=%22M3 4.5L6 7.5L9 4.5%22/></svg>')] bg-no-repeat bg-[right_8px_center]"
-    >
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="w-full h-9 text-sm">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
       {options.map((opt) => (
-        <option key={opt.value} value={opt.value}>{opt.label}</option>
+          <SelectItem key={opt.value} value={opt.value}>
+            {opt.label}
+          </SelectItem>
       ))}
-    </select>
+      </SelectContent>
+    </Select>
   );
 }
 
 // Toggle button group
 function ToggleGroup({ value, onChange, options }: { value: string; onChange: (value: string) => void; options: { icon?: React.ReactNode; label?: string; value: string }[] }) {
   return (
-    <div className="flex bg-gray-100 rounded-md p-0.5">
+    <div className="flex bg-muted border border-border rounded-md p-0.5">
       {options.map((opt) => (
         <button
           key={opt.value}
           onClick={() => onChange(opt.value)}
           className={`flex-1 px-2 py-1.5 rounded text-xs font-medium transition-all ${
             value === opt.value
-              ? 'bg-white shadow-sm text-gray-900'
-              : 'text-gray-500 hover:text-gray-700'
+              ? "bg-background shadow-sm text-foreground"
+              : "text-muted-foreground hover:text-foreground"
           }`}
         >
           {opt.icon || opt.label}
@@ -161,7 +250,7 @@ function ToggleGroup({ value, onChange, options }: { value: string; onChange: (v
 function SpacingControl({ value, onChange, label }: { value: string; onChange: (value: string) => void; label: string }) {
   return (
     <div className="space-y-1">
-      <Label className="text-xs text-gray-500">{label}</Label>
+      <Label className="text-xs text-muted-foreground">{label}</Label>
       <NumberInput value={value} onChange={onChange} />
     </div>
   );
@@ -171,39 +260,39 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
   // Show Global Email Settings when no component is selected
   if (!component) {
     return (
-      <div className="w-full h-full bg-white flex flex-col">
+      <div className="w-full h-full bg-background flex flex-col">
         {/* Header */}
-        <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-3">
+        <div className="px-4 py-3 border-b border-border flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
             <Globe className="h-4 w-4 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-sm font-semibold text-gray-900 truncate">Email Settings</h2>
-            <p className="text-[10px] text-gray-400 uppercase tracking-wide">Global Styles</p>
+            <h2 className="text-sm font-semibold text-foreground truncate">Email Settings</h2>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Global Styles</p>
           </div>
         </div>
         
         {/* Global Settings */}
         <ScrollArea className="flex-1">
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-border">
             {/* COLORS */}
             <Section title="Colors">
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Body Background</Label>
+                <Label className="text-xs text-muted-foreground">Body Background</Label>
                 <ColorInput 
                   value={globalStyles?.bodyBackgroundColor || "#f4f4f5"} 
                   onChange={(v) => onUpdateGlobalStyles?.({ bodyBackgroundColor: v })} 
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Container Background</Label>
+                <Label className="text-xs text-muted-foreground">Container Background</Label>
                 <ColorInput 
                   value={globalStyles?.containerBackgroundColor || "#ffffff"} 
                   onChange={(v) => onUpdateGlobalStyles?.({ containerBackgroundColor: v })} 
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Default Text Color</Label>
+                <Label className="text-xs text-muted-foreground">Default Text Color</Label>
                 <ColorInput 
                   value={globalStyles?.textColor || "#1a1a1a"} 
                   onChange={(v) => onUpdateGlobalStyles?.({ textColor: v })} 
@@ -214,7 +303,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
             {/* LAYOUT */}
             <Section title="Layout">
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Max Width</Label>
+                <Label className="text-xs text-muted-foreground">Max Width</Label>
                 <NumberInput 
                   value={globalStyles?.maxWidth || "600px"} 
                   onChange={(v) => onUpdateGlobalStyles?.({ maxWidth: v })} 
@@ -222,7 +311,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Container Padding</Label>
+                <Label className="text-xs text-muted-foreground">Container Padding</Label>
                 <NumberInput 
                   value={globalStyles?.containerPadding || "20px"} 
                   onChange={(v) => onUpdateGlobalStyles?.({ containerPadding: v })} 
@@ -234,8 +323,8 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
             {/* TYPOGRAPHY */}
             <Section title="Typography">
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Font Family</Label>
-                <Select 
+                <Label className="text-xs text-muted-foreground">Font Family</Label>
+                <SelectDropdown 
                   value={globalStyles?.fontFamily || "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"}
                   onChange={(v) => onUpdateGlobalStyles?.({ fontFamily: v })}
                   options={[
@@ -249,7 +338,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Base Font Size</Label>
+                <Label className="text-xs text-muted-foreground">Base Font Size</Label>
                 <NumberInput 
                   value={globalStyles?.fontSize || "16px"} 
                   onChange={(v) => onUpdateGlobalStyles?.({ fontSize: v })} 
@@ -275,8 +364,8 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
   const metadata = componentRegistry[component.type];
   if (!metadata) {
     return (
-      <div className="w-full h-full bg-white p-4">
-        <p className="text-sm text-gray-500">Unknown component</p>
+      <div className="w-full h-full bg-background p-4">
+        <p className="text-sm text-muted-foreground">Unknown component</p>
       </div>
     );
   }
@@ -321,13 +410,17 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
   const style = props.style || {};
   const className = component.className || "";
 
+  // Email layouts are typically designed for a 600px content width.
+  // We use this constant when auto-fitting images for reliable rendering across email clients.
+  const EMAIL_CANVAS_WIDTH = 600;
+
   // Helper to extract values from Tailwind classes
   const getTailwindValue = (property: string): string | undefined => {
-    // Background color: bg-[#xxx] or bg-white etc.
+    // Background color: bg-[#xxx] or bg-background etc.
     if (property === "backgroundColor") {
       const hexMatch = className.match(/bg-\[#([a-fA-F0-9]{3,6})\]/);
       if (hexMatch) return `#${hexMatch[1]}`;
-      if (className.includes("bg-white")) return "#ffffff";
+      if (className.includes("bg-background")) return "#ffffff";
       if (className.includes("bg-black")) return "#000000";
     }
     // Text color: text-[#xxx] or text-white etc.
@@ -421,6 +514,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
   const isNumberedList = component.type === "NumberedList";
   const isGallery = component.type === "Gallery";
   const isMarketing = component.type === "Marketing";
+  const isTestimonial = component.type === "Testimonial";
   const hasLink = isButton || isLink;
   // Check if this is the Columns component (Row with columnCount prop)
   const isColumns = component.type === "Row" && component.props?.columnCount !== undefined;
@@ -451,39 +545,39 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
   ];
 
   return (
-    <div className="w-full h-full bg-white flex flex-col">
+    <div className="w-full h-full bg-background flex flex-col">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-3">
+      <div className="px-4 py-3 border-b border-border flex items-center gap-3">
         <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
           <Type className="h-4 w-4 text-primary" />
         </div>
         <div className="flex-1 min-w-0">
-          <h2 className="text-sm font-semibold text-gray-900 truncate">{metadata.name}</h2>
-          <p className="text-[10px] text-gray-400 uppercase tracking-wide">{component.type}</p>
+          <h2 className="text-sm font-semibold text-foreground truncate">{metadata.name}</h2>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{component.type}</p>
         </div>
       </div>
       
       {/* Properties */}
       <ScrollArea className="flex-1">
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-border">
           
           {/* CONTENT SECTION */}
           {(isText || isButton || isLink || isPreview || isCodeInline || isMarkdown) && (
             <Section title="Content">
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">{isMarkdown ? "Markdown" : "Text"}</Label>
+                <Label className="text-xs text-muted-foreground">{isMarkdown ? "Markdown" : "Text"}</Label>
                 <Textarea
                   value={getPropValue("children")}
                   onChange={(e) => updateProp("children", e.target.value)}
                   placeholder={isMarkdown ? "# Heading\n\nYour markdown content..." : "Enter text..."}
-                  className={`text-sm resize-none border-gray-200 ${isMarkdown ? "min-h-[150px] font-mono text-xs" : "min-h-[70px]"}`}
+                  className={`text-sm resize-none border-border ${isMarkdown ? "min-h-[150px] font-mono text-xs" : "min-h-[70px]"}`}
                 />
               </div>
               
               {component.type === "Heading" && (
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Level</Label>
-                  <Select 
+                  <Label className="text-xs text-muted-foreground">Level</Label>
+                  <SelectDropdown 
                     value={getPropValue("as") || "h1"}
                     onChange={(v) => updateProp("as", v)}
                     options={[
@@ -504,19 +598,19 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
           {isCodeBlock && (
             <Section title="Code">
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Code</Label>
+                <Label className="text-xs text-muted-foreground">Code</Label>
                 <Textarea
                   value={getPropValue("code")}
                   onChange={(e) => updateProp("code", e.target.value)}
                   placeholder="// Your code here..."
-                  className="min-h-[120px] text-xs font-mono resize-none border-gray-200 bg-gray-50"
+                  className="min-h-[120px] text-xs font-mono resize-none border-border bg-muted"
                 />
               </div>
               
               <InputRow>
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Language</Label>
-                  <Select 
+                  <Label className="text-xs text-muted-foreground">Language</Label>
+                  <SelectDropdown 
                     value={getPropValue("language") || "javascript"}
                     onChange={(v) => updateProp("language", v)}
                     options={[
@@ -532,8 +626,8 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Theme</Label>
-                  <Select 
+                  <Label className="text-xs text-muted-foreground">Theme</Label>
+                  <SelectDropdown 
                     value={getPropValue("theme") || "dracula"}
                     onChange={(v) => updateProp("theme", v)}
                     options={[
@@ -547,14 +641,14 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
               </InputRow>
 
               <div className="flex items-center justify-between py-1">
-                <Label className="text-xs text-gray-500">Show Line Numbers</Label>
+                <Label className="text-xs text-muted-foreground">Show Line Numbers</Label>
                 <button
                   onClick={() => updateProp("showLineNumbers", !getPropValue("showLineNumbers"))}
                   className={`w-9 h-5 rounded-full transition-colors ${
-                    getPropValue("showLineNumbers") !== false ? "bg-primary" : "bg-gray-200"
+                    getPropValue("showLineNumbers") !== false ? "bg-primary" : "bg-muted"
                   }`}
                 >
-                  <div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                  <div className={`w-4 h-4 bg-background rounded-full shadow transition-transform ${
                     getPropValue("showLineNumbers") !== false ? "translate-x-4" : "translate-x-0.5"
                   }`} />
                 </button>
@@ -567,14 +661,14 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
             <Section title="Style">
               <InputRow>
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Background</Label>
+                  <Label className="text-xs text-muted-foreground">Background</Label>
                   <ColorInput 
                     value={getStyleValue("backgroundColor", "#f4f4f5")} 
                     onChange={(v) => updateProp("style.backgroundColor", v)} 
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Text Color</Label>
+                  <Label className="text-xs text-muted-foreground">Text Color</Label>
                   <ColorInput 
                     value={getStyleValue("color", "#18181b")} 
                     onChange={(v) => updateProp("style.color", v)} 
@@ -583,7 +677,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
               </InputRow>
               <InputRow>
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Font Size</Label>
+                  <Label className="text-xs text-muted-foreground">Font Size</Label>
                   <NumberInput 
                     value={getStyleValue("fontSize", "14px")} 
                     onChange={(v) => updateProp("style.fontSize", v)} 
@@ -591,7 +685,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Border Radius</Label>
+                  <Label className="text-xs text-muted-foreground">Border Radius</Label>
                   <NumberInput 
                     value={getStyleValue("borderRadius", "4px")} 
                     onChange={(v) => updateProp("style.borderRadius", v)} 
@@ -606,14 +700,14 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
           {hasLink && (
             <Section title="Link">
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">URL</Label>
+                <Label className="text-xs text-muted-foreground">URL</Label>
                 <div className="relative">
-                  <Link2 className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                  <Link2 className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
                     value={getPropValue("href")}
                     onChange={(e) => updateProp("href", e.target.value)}
                     placeholder="https://..."
-                    className="pl-8 text-sm border-gray-200"
+                    className="pl-8 text-sm border-border"
                   />
                 </div>
               </div>
@@ -623,57 +717,178 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
           {/* IMAGE SECTION */}
           {isImage && (
             <Section title="Image">
-              <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Source URL</Label>
-                <div className="relative">
-                  <ImageIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-                  <Input
-                    value={getPropValue("src")}
-                    onChange={(e) => updateProp("src", e.target.value)}
-                    placeholder="https://..."
-                    className="pl-8 text-sm border-gray-200"
-                  />
-                </div>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Alt Text</Label>
-                <Input
-                  value={getPropValue("alt")}
-                  onChange={(e) => updateProp("alt", e.target.value)}
-                  placeholder="Describe the image..."
-                  className="text-sm border-gray-200"
-                />
-              </div>
-              <InputRow>
-                <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Width</Label>
-                  <NumberInput 
-                    value={getPropValue("width")} 
-                    onChange={(v) => updateProp("width", v)} 
-                    unit="px"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Height</Label>
-                  <NumberInput 
-                    value={getPropValue("height")} 
-                    onChange={(v) => updateProp("height", v)} 
-                    unit="px"
-                  />
-                </div>
-              </InputRow>
-              <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Alignment</Label>
-                <ToggleGroup
-                  value={getStyleValue("textAlign", "center")}
-                  onChange={(v) => updateProp("style.textAlign", v)}
-                  options={[
-                    { icon: <AlignLeft className="h-3.5 w-3.5 mx-auto" />, value: 'left' },
-                    { icon: <AlignCenter className="h-3.5 w-3.5 mx-auto" />, value: 'center' },
-                    { icon: <AlignRight className="h-3.5 w-3.5 mx-auto" />, value: 'right' },
-                  ]}
-                />
-              </div>
+              {(() => {
+                const src = String(getPropValue("src") || "");
+                const width = String(getPropValue("width") || "");
+                const height = String(getPropValue("height") || "");
+                const [autoFitEnabled, setAutoFitEnabled] = useState(true);
+                const [autoFitStatus, setAutoFitStatus] = useState<string | null>(null);
+                const [lastAutoFitSrc, setLastAutoFitSrc] = useState<string | null>(null);
+
+                const isConvexStorageUrl =
+                  src.includes(".convex.cloud") || src.includes("/_storage/") || src.includes("convex.site");
+
+                const canAutoFit = typeof window !== "undefined" && !!src && src.startsWith("http");
+
+                const setImageProps = (next: Partial<Record<string, any>>) => {
+                  const nextStyle = next.style ? { ...(style || {}), ...(next.style || {}) } : style;
+                  const merged = {
+                    ...props,
+                    ...next,
+                    ...(next.style ? { style: nextStyle } : {}),
+                  };
+                  onUpdate({ props: merged });
+                };
+
+                const autoFitToEmailWidth = async (reason: "manual" | "auto") => {
+                  if (!canAutoFit) return;
+                  setAutoFitStatus(reason === "manual" ? "Fitting..." : "Auto-fitting...");
+
+                  try {
+                    const img = new Image();
+                    img.decoding = "async";
+                    img.loading = "eager";
+
+                    img.onload = () => {
+                      try {
+                        const naturalW = img.naturalWidth || 0;
+                        const naturalH = img.naturalHeight || 0;
+                        if (!naturalW || !naturalH) {
+                          setAutoFitStatus("Could not read image dimensions.");
+                          return;
+                        }
+                        const nextW = EMAIL_CANVAS_WIDTH;
+                        const nextH = Math.max(1, Math.round((EMAIL_CANVAS_WIDTH * naturalH) / naturalW));
+
+                        setImageProps({
+                          width: String(nextW),
+                          height: String(nextH),
+                          style: {
+                            maxWidth: "100%",
+                            height: "auto",
+                          },
+                        });
+
+                        setLastAutoFitSrc(src);
+                        setAutoFitStatus(`Fitted to ${nextW}×${nextH}.`);
+                        window.setTimeout(() => setAutoFitStatus(null), 1500);
+                      } catch {
+                        setAutoFitStatus("Failed to fit image.");
+                      }
+                    };
+
+                    img.onerror = () => {
+                      setAutoFitStatus("Failed to load image for sizing.");
+                    };
+
+                    img.src = src;
+                  } catch {
+                    setAutoFitStatus("Failed to fit image.");
+                  }
+                };
+
+                // Auto-fit when the user pastes a Convex-hosted marketing asset URL.
+                // Only auto-run when width/height are missing OR were last set by auto-fit,
+                // to avoid surprising the user after they manually tuned values.
+                if (
+                  autoFitEnabled &&
+                  isConvexStorageUrl &&
+                  src &&
+                  src !== lastAutoFitSrc &&
+                  (width.trim() === "" || height.trim() === "")
+                ) {
+                  // Fire-and-forget. This runs during render, so we defer to the next tick.
+                  queueMicrotask(() => {
+                    void autoFitToEmailWidth("auto");
+                  });
+                }
+
+                return (
+                  <>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Source URL</Label>
+                      <div className="relative">
+                        <ImageIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                        <Input
+                          value={getPropValue("src")}
+                          onChange={(e) => updateProp("src", e.target.value)}
+                          placeholder="https://..."
+                          className="pl-8 text-sm border-border"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void autoFitToEmailWidth("manual")}
+                        disabled={!canAutoFit}
+                        className="text-xs font-medium text-primary hover:underline disabled:text-muted-foreground disabled:no-underline"
+                        title="Set width/height to match the image aspect ratio at 600px email width"
+                      >
+                        Auto-fit to 600px
+                      </button>
+
+                      <label className="flex items-center gap-2 text-xs text-muted-foreground select-none">
+                        <input
+                          type="checkbox"
+                          checked={autoFitEnabled}
+                          onChange={(e) => setAutoFitEnabled(e.target.checked)}
+                        />
+                        Auto-fit Convex assets
+                      </label>
+                    </div>
+
+                    {autoFitStatus && (
+                      <div className="text-[11px] text-muted-foreground">{autoFitStatus}</div>
+                    )}
+
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Alt Text</Label>
+                      <Input
+                        value={getPropValue("alt")}
+                        onChange={(e) => updateProp("alt", e.target.value)}
+                        placeholder="Describe the image..."
+                        className="text-sm border-border"
+                      />
+                    </div>
+
+                    <InputRow>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Width</Label>
+                        <NumberInput 
+                          value={getPropValue("width")} 
+                          onChange={(v) => updateProp("width", v)} 
+                          unit="px"
+                          mode="number"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Height</Label>
+                        <NumberInput 
+                          value={getPropValue("height")} 
+                          onChange={(v) => updateProp("height", v)} 
+                          unit="px"
+                          mode="number"
+                        />
+                      </div>
+                    </InputRow>
+
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Alignment</Label>
+                      <ToggleGroup
+                        value={getStyleValue("textAlign", "center")}
+                        onChange={(v) => updateProp("style.textAlign", v)}
+                        options={[
+                          { icon: <AlignLeft className="h-3.5 w-3.5 mx-auto" />, value: 'left' },
+                          { icon: <AlignCenter className="h-3.5 w-3.5 mx-auto" />, value: 'center' },
+                          { icon: <AlignRight className="h-3.5 w-3.5 mx-auto" />, value: 'right' },
+                        ]}
+                      />
+                    </div>
+                  </>
+                );
+              })()}
             </Section>
           )}
 
@@ -681,7 +896,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
           {isColumns && (
             <Section title="Layout">
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Number of Columns</Label>
+                <Label className="text-xs text-muted-foreground">Number of Columns</Label>
                 <Select
                   value={String(props.columnCount || 2)}
                   onChange={(v) => {
@@ -740,7 +955,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Gap Between Columns</Label>
+                <Label className="text-xs text-muted-foreground">Gap Between Columns</Label>
                 <NumberInput
                   value={props.columnGap || 20}
                   onChange={(v) => {
@@ -767,6 +982,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                     });
                   }}
                   unit="px"
+                  mode="number"
                   min={0}
                   max={60}
                   step={4}
@@ -781,7 +997,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
               <Section title="Platforms">
                 <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
                   {(props.platforms || []).map((p: { platform: string; url: string }, idx: number) => (
-                    <div key={idx} className="flex gap-2 items-start p-2 bg-gray-50 rounded-lg">
+                    <div key={idx} className="flex gap-2 items-start p-2 bg-muted rounded-lg">
                       <div className="flex-1 space-y-1.5">
                         <Select
                           value={p.platform}
@@ -808,7 +1024,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                           const newPlatforms = (props.platforms || []).filter((_: any, i: number) => i !== idx);
                           updateProp("platforms", newPlatforms);
                         }}
-                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                        className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-50 rounded transition-colors"
                       >
                         <Minus className="h-3.5 w-3.5" />
                       </button>
@@ -834,26 +1050,28 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
               <Section title="Style">
                 <InputRow>
                   <div className="space-y-1">
-                    <Label className="text-xs text-gray-500">Icon Size</Label>
+                    <Label className="text-xs text-muted-foreground">Icon Size</Label>
                     <NumberInput 
                       value={props.iconSize || 32} 
                       onChange={(v) => updateProp("iconSize", parseInt(v) || 32)} 
                       unit="px"
+                      mode="number"
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs text-gray-500">Spacing</Label>
+                    <Label className="text-xs text-muted-foreground">Spacing</Label>
                     <NumberInput 
                       value={props.spacing || 12} 
                       onChange={(v) => updateProp("spacing", parseInt(v) || 12)} 
                       unit="px"
+                      mode="number"
                     />
                   </div>
                 </InputRow>
                 
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Icon Shape</Label>
-                  <Select 
+                  <Label className="text-xs text-muted-foreground">Icon Shape</Label>
+                  <SelectDropdown 
                     value={props.iconShape || "circle"}
                     onChange={(v) => updateProp("iconShape", v)}
                     options={[
@@ -865,12 +1083,13 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Icon Style</Label>
-                  <Select 
+                  <Label className="text-xs text-muted-foreground">Icon Style</Label>
+                  <SelectDropdown 
                     value={props.iconStyle || "colored"}
                     onChange={(v) => updateProp("iconStyle", v)}
                     options={[
                       { label: 'Colored (Brand)', value: 'colored' },
+                      { label: 'Official (Favicon/Touch Icon)', value: 'official' },
                       { label: 'Dark', value: 'dark' },
                       { label: 'Light', value: 'light' },
                     ]}
@@ -878,7 +1097,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Alignment</Label>
+                  <Label className="text-xs text-muted-foreground">Alignment</Label>
                   <ToggleGroup
                     value={style.textAlign || "center"}
                     onChange={(v) => updateProp("style.textAlign", v)}
@@ -898,7 +1117,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
             <Section title={`Stats (${(props.stats || []).length})`}>
               <div className="space-y-2">
                 {(props.stats || []).map((stat: { value: string; title: string; description?: string }, idx: number) => (
-                  <div key={idx} className="p-2 bg-gray-50 rounded-lg border border-gray-100">
+                  <div key={idx} className="p-2 bg-muted rounded-lg border border-border">
                     <div className="flex items-start gap-2">
                       <div className="flex-1 space-y-1.5">
                         <div className="flex gap-2">
@@ -939,7 +1158,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                           const newStats = (props.stats || []).filter((_: any, i: number) => i !== idx);
                           updateProp("stats", newStats);
                         }}
-                        className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors shrink-0"
+                        className="p-1 text-muted-foreground hover:text-red-500 hover:bg-red-50 rounded transition-colors shrink-0"
                       >
                         <Minus className="h-3.5 w-3.5" />
                       </button>
@@ -966,7 +1185,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
               <Section title={`List Items (${(props.items || []).length})`}>
                 <div className="space-y-2">
                   {(props.items || []).map((item: { title: string; description: string }, idx: number) => (
-                    <div key={idx} className="p-2 bg-gray-50 rounded-lg border border-gray-100">
+                    <div key={idx} className="p-2 bg-muted rounded-lg border border-border">
                       <div className="flex items-start gap-2">
                         <div 
                           className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-semibold text-white shrink-0 mt-1"
@@ -1001,7 +1220,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                             const newItems = (props.items || []).filter((_: any, i: number) => i !== idx);
                             updateProp("items", newItems);
                           }}
-                          className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors shrink-0"
+                          className="p-1 text-muted-foreground hover:text-red-500 hover:bg-red-50 rounded transition-colors shrink-0"
                         >
                           <Minus className="h-3.5 w-3.5" />
                         </button>
@@ -1023,14 +1242,14 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
 
               <Section title="Style">
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Number Circle Color</Label>
+                  <Label className="text-xs text-muted-foreground">Number Circle Color</Label>
                   <ColorInput 
                     value={props.numberBgColor || "#4f46e5"} 
                     onChange={(v) => updateProp("numberBgColor", v)} 
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Padding</Label>
+                  <Label className="text-xs text-muted-foreground">Padding</Label>
                   <NumberInput 
                     value={style.padding || "0"} 
                     onChange={(v) => updateProp("style.padding", v)} 
@@ -1046,7 +1265,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
             <>
               <Section title="Content">
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Section Title</Label>
+                  <Label className="text-xs text-muted-foreground">Section Title</Label>
                   <Input
                     value={props.sectionTitle || "Our products"}
                     onChange={(e) => updateProp("sectionTitle", e.target.value)}
@@ -1055,7 +1274,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Headline</Label>
+                  <Label className="text-xs text-muted-foreground">Headline</Label>
                   <Input
                     value={props.headline || "Elegant Style"}
                     onChange={(e) => updateProp("headline", e.target.value)}
@@ -1064,7 +1283,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Description</Label>
+                  <Label className="text-xs text-muted-foreground">Description</Label>
                   <Textarea
                     value={props.description || ""}
                     onChange={(e) => updateProp("description", e.target.value)}
@@ -1076,21 +1295,21 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
 
               <Section title="Colors">
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Title Color</Label>
+                  <Label className="text-xs text-muted-foreground">Title Color</Label>
                   <ColorInput 
                     value={props.titleColor || "#4f46e5"} 
                     onChange={(v) => updateProp("titleColor", v)} 
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Headline Color</Label>
+                  <Label className="text-xs text-muted-foreground">Headline Color</Label>
                   <ColorInput 
                     value={props.headlineColor || "#111827"} 
                     onChange={(v) => updateProp("headlineColor", v)} 
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Description Color</Label>
+                  <Label className="text-xs text-muted-foreground">Description Color</Label>
                   <ColorInput 
                     value={props.descriptionColor || "#6b7280"} 
                     onChange={(v) => updateProp("descriptionColor", v)} 
@@ -1101,7 +1320,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
               <Section title={`Images (${(props.images || []).length})`}>
                 <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
                   {(props.images || []).map((img: { src: string; alt: string; href: string }, idx: number) => (
-                    <div key={idx} className="p-2 bg-gray-50 rounded-lg border border-gray-100">
+                    <div key={idx} className="p-2 bg-muted rounded-lg border border-border">
                       <div className="flex items-start gap-2">
                         <div className="flex-1 space-y-1.5">
                           <Input
@@ -1140,7 +1359,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                             const newImages = (props.images || []).filter((_: any, i: number) => i !== idx);
                             updateProp("images", newImages);
                           }}
-                          className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors shrink-0"
+                          className="p-1 text-muted-foreground hover:text-red-500 hover:bg-red-50 rounded transition-colors shrink-0"
                         >
                           <Minus className="h-3.5 w-3.5" />
                         </button>
@@ -1163,8 +1382,8 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
               <Section title="Layout">
                 <InputRow>
                   <div className="space-y-1">
-                    <Label className="text-xs text-gray-500">Columns</Label>
-                    <Select 
+                    <Label className="text-xs text-muted-foreground">Columns</Label>
+                    <SelectDropdown 
                       value={String(props.columns || 2)}
                       onChange={(v) => updateProp("columns", parseInt(v))}
                       options={[
@@ -1175,17 +1394,18 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs text-gray-500">Image Height</Label>
+                    <Label className="text-xs text-muted-foreground">Image Height</Label>
                     <NumberInput 
                       value={props.imageHeight || 288} 
                       onChange={(v) => updateProp("imageHeight", parseInt(v) || 288)} 
                       unit="px"
+                      mode="number"
                     />
                   </div>
                 </InputRow>
                 <InputRow>
                   <div className="space-y-1">
-                    <Label className="text-xs text-gray-500">Border Radius</Label>
+                    <Label className="text-xs text-muted-foreground">Border Radius</Label>
                     <NumberInput 
                       value={props.borderRadius || "12px"} 
                       onChange={(v) => updateProp("borderRadius", v)} 
@@ -1193,7 +1413,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs text-gray-500">Gap</Label>
+                    <Label className="text-xs text-muted-foreground">Gap</Label>
                     <NumberInput 
                       value={props.gap || "16px"} 
                       onChange={(v) => updateProp("gap", v)} 
@@ -1210,7 +1430,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
             <>
               <Section title="Header">
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Title</Label>
+                  <Label className="text-xs text-muted-foreground">Title</Label>
                   <Input
                     value={props.headerTitle || "Coffee Storage"}
                     onChange={(e) => updateProp("headerTitle", e.target.value)}
@@ -1219,7 +1439,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Description</Label>
+                  <Label className="text-xs text-muted-foreground">Description</Label>
                   <Textarea
                     value={props.headerDescription || ""}
                     onChange={(e) => updateProp("headerDescription", e.target.value)}
@@ -1229,7 +1449,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                 </div>
                 <InputRow>
                   <div className="space-y-1">
-                    <Label className="text-xs text-gray-500">Link Text</Label>
+                    <Label className="text-xs text-muted-foreground">Link Text</Label>
                     <Input
                       value={props.headerLinkText || "Shop now →"}
                       onChange={(e) => updateProp("headerLinkText", e.target.value)}
@@ -1238,7 +1458,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs text-gray-500">Link URL</Label>
+                    <Label className="text-xs text-muted-foreground">Link URL</Label>
                     <Input
                       value={props.headerLinkUrl || "#"}
                       onChange={(e) => updateProp("headerLinkUrl", e.target.value)}
@@ -1248,7 +1468,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                   </div>
                 </InputRow>
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Header Image</Label>
+                  <Label className="text-xs text-muted-foreground">Header Image</Label>
                   <Input
                     value={props.headerImage || ""}
                     onChange={(e) => updateProp("headerImage", e.target.value)}
@@ -1257,7 +1477,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Image Alt Text</Label>
+                  <Label className="text-xs text-muted-foreground">Image Alt Text</Label>
                   <Input
                     value={props.headerImageAlt || ""}
                     onChange={(e) => updateProp("headerImageAlt", e.target.value)}
@@ -1269,21 +1489,21 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
 
               <Section title="Colors">
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Header Background</Label>
+                  <Label className="text-xs text-muted-foreground">Header Background</Label>
                   <ColorInput 
                     value={props.headerBgColor || "#292524"} 
                     onChange={(v) => updateProp("headerBgColor", v)} 
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Container Background</Label>
+                  <Label className="text-xs text-muted-foreground">Container Background</Label>
                   <ColorInput 
                     value={props.containerBgColor || "#ffffff"} 
                     onChange={(v) => updateProp("containerBgColor", v)} 
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Border Radius</Label>
+                  <Label className="text-xs text-muted-foreground">Border Radius</Label>
                   <NumberInput 
                     value={props.borderRadius || "8px"} 
                     onChange={(v) => updateProp("borderRadius", v)} 
@@ -1295,7 +1515,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
               <Section title={`Products (${(props.products || []).length})`}>
                 <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
                   {(props.products || []).map((product: { imageUrl: string; altText: string; title: string; description: string; linkUrl: string }, idx: number) => (
-                    <div key={idx} className="p-2 bg-gray-50 rounded-lg border border-gray-100">
+                    <div key={idx} className="p-2 bg-muted rounded-lg border border-border">
                       <div className="flex items-start gap-2">
                         <div className="flex-1 space-y-1.5">
                           <Input
@@ -1344,7 +1564,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                             const newProducts = (props.products || []).filter((_: any, i: number) => i !== idx);
                             updateProp("products", newProducts);
                           }}
-                          className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors shrink-0"
+                          className="p-1 text-muted-foreground hover:text-red-500 hover:bg-red-50 rounded transition-colors shrink-0"
                         >
                           <Minus className="h-3.5 w-3.5" />
                         </button>
@@ -1372,12 +1592,137 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
             </>
           )}
 
+          {/* TESTIMONIAL COMPONENT SECTION */}
+          {isTestimonial && (
+            <>
+              <Section title="Content">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Quote</Label>
+                  <Textarea
+                    value={getPropValue("quote")}
+                    onChange={(e) => updateProp("quote", e.target.value)}
+                    placeholder="Write a testimonial quote..."
+                    className="text-sm min-h-[90px] resize-none border-border"
+                  />
+                </div>
+                <InputRow>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Author</Label>
+                    <Input
+                      value={getPropValue("authorName")}
+                      onChange={(e) => updateProp("authorName", e.target.value)}
+                      placeholder="Jane Doe"
+                      className="text-sm border-border"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Title</Label>
+                    <Input
+                      value={getPropValue("authorTitle")}
+                      onChange={(e) => updateProp("authorTitle", e.target.value)}
+                      placeholder="CEO"
+                      className="text-sm border-border"
+                    />
+                  </div>
+                </InputRow>
+              </Section>
+
+              <Section title="Image">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Source URL</Label>
+                  <Input
+                    value={getPropValue("imageSrc")}
+                    onChange={(e) => updateProp("imageSrc", e.target.value)}
+                    placeholder="https://..."
+                    className="text-sm border-border"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Alt Text</Label>
+                  <Input
+                    value={getPropValue("imageAlt")}
+                    onChange={(e) => updateProp("imageAlt", e.target.value)}
+                    placeholder="Person name"
+                    className="text-sm border-border"
+                  />
+                </div>
+                <InputRow>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Width</Label>
+                    <NumberInput
+                      value={getPropValue("imageWidth") || 320}
+                      onChange={(v) => updateProp("imageWidth", parseInt(v) || 320)}
+                      unit="px"
+                      mode="number"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Height</Label>
+                    <NumberInput
+                      value={getPropValue("imageHeight") || 320}
+                      onChange={(v) => updateProp("imageHeight", parseInt(v) || 320)}
+                      unit="px"
+                      mode="number"
+                    />
+                  </div>
+                </InputRow>
+              </Section>
+
+              <Section title="Colors">
+                <InputRow>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Quote</Label>
+                    <ColorInput
+                      value={getPropValue("quoteColor") || "#374151"}
+                      onChange={(v) => updateProp("quoteColor", v)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Author</Label>
+                    <ColorInput
+                      value={getPropValue("authorNameColor") || "#1f2937"}
+                      onChange={(v) => updateProp("authorNameColor", v)}
+                    />
+                  </div>
+                </InputRow>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Title</Label>
+                  <ColorInput
+                    value={getPropValue("authorTitleColor") || "#4b5563"}
+                    onChange={(v) => updateProp("authorTitleColor", v)}
+                  />
+                </div>
+              </Section>
+
+              <Section title="Spacing">
+                <InputRow>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Margin</Label>
+                    <NumberInput
+                      value={getStyleValue("margin", "12px")}
+                      onChange={(v) => updateProp("style.margin", v)}
+                      unit="px"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Padding</Label>
+                    <NumberInput
+                      value={getStyleValue("padding", "16px 0")}
+                      onChange={(v) => updateProp("style.padding", v)}
+                      unit="px"
+                    />
+                  </div>
+                </InputRow>
+              </Section>
+            </>
+          )}
+
           {/* TYPOGRAPHY SECTION */}
           {(isText || isButton || isLink) && (
             <Section title="Typography">
               <InputRow>
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Size</Label>
+                  <Label className="text-xs text-muted-foreground">Size</Label>
                   <NumberInput 
                     value={getStyleValue("fontSize", "16px")} 
                     onChange={(v) => updateProp("style.fontSize", v)} 
@@ -1385,8 +1730,8 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Weight</Label>
-                  <Select 
+                  <Label className="text-xs text-muted-foreground">Weight</Label>
+                  <SelectDropdown 
                     value={getStyleValue("fontWeight", "400")}
                     onChange={(v) => updateProp("style.fontWeight", v)}
                     options={[
@@ -1402,16 +1747,18 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
               
               <InputRow>
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Line Height</Label>
+                  <Label className="text-xs text-muted-foreground">Line Height</Label>
                   <NumberInput 
                     value={getStyleValue("lineHeight", "1.5")} 
                     onChange={(v) => updateProp("style.lineHeight", v)} 
-                    unit="px"
+                    unit=""
+                    mode="number"
+                    step={0.1}
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Decoration</Label>
-                  <Select 
+                  <Label className="text-xs text-muted-foreground">Decoration</Label>
+                  <SelectDropdown 
                     value={getStyleValue("textDecoration", "none")}
                     onChange={(v) => updateProp("style.textDecoration", v)}
                     options={[
@@ -1424,7 +1771,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
               </InputRow>
 
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Alignment</Label>
+                <Label className="text-xs text-muted-foreground">Alignment</Label>
                 <ToggleGroup
                   value={getStyleValue("textAlign", "left")}
                   onChange={(v) => updateProp("style.textAlign", v)}
@@ -1443,7 +1790,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
           {(isText || isButton || isLink || isContainer) && (
             <Section title="Colors">
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Text Color</Label>
+                <Label className="text-xs text-muted-foreground">Text Color</Label>
                 <ColorInput 
                   value={getStyleValue("color", "#000000")} 
                   onChange={(v) => updateProp("style.color", v)} 
@@ -1452,7 +1799,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
               
               {(isButton || isContainer) && (
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Background</Label>
+                  <Label className="text-xs text-muted-foreground">Background</Label>
                   <ColorInput 
                     value={getStyleValue("backgroundColor", "#ffffff")} 
                     onChange={(v) => updateProp("style.backgroundColor", v)} 
@@ -1466,7 +1813,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
           {(isButton || isContainer || isImage) && (
             <Section title="Spacing">
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Padding</Label>
+                <Label className="text-xs text-muted-foreground">Padding</Label>
                 <NumberInput 
                   value={getStyleValue("padding", "0")} 
                   onChange={(v) => updateProp("style.padding", v)} 
@@ -1476,7 +1823,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
               
               {isContainer && (
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Margin</Label>
+                  <Label className="text-xs text-muted-foreground">Margin</Label>
                   <NumberInput 
                     value={getStyleValue("margin", "0")} 
                     onChange={(v) => updateProp("style.margin", v)} 
@@ -1491,7 +1838,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
           {isContainer && (
             <Section title="Size">
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Max Width</Label>
+                <Label className="text-xs text-muted-foreground">Max Width</Label>
                 <NumberInput 
                   value={getStyleValue("maxWidth", "600px")} 
                   onChange={(v) => updateProp("style.maxWidth", v)} 
@@ -1506,7 +1853,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
             <Section title="Border">
               <InputRow>
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Radius</Label>
+                  <Label className="text-xs text-muted-foreground">Radius</Label>
                   <NumberInput 
                     value={getStyleValue("borderRadius", "0")} 
                     onChange={(v) => updateProp("style.borderRadius", v)} 
@@ -1514,7 +1861,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Width</Label>
+                  <Label className="text-xs text-muted-foreground">Width</Label>
                   <NumberInput 
                     value={getStyleValue("borderWidth", "0")} 
                     onChange={(v) => updateProp("style.borderWidth", v)} 
@@ -1522,6 +1869,56 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                   />
                 </div>
               </InputRow>
+              
+              {/* Containers often use borderTop (e.g. Footer top separator). Provide structured controls. */}
+              {isContainer && (
+                <>
+                  <InputRow>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Top Border Color</Label>
+                      <ColorInput
+                        value={(() => {
+                          const borderTop = style.borderTop || "1px solid #e1e8ed";
+                          const match = String(borderTop).match(/#[a-fA-F0-9]{3,6}/);
+                          return match ? match[0] : "#e1e8ed";
+                        })()}
+                        onChange={(v) => {
+                          const borderTop = style.borderTop || "1px solid #e1e8ed";
+                          const hasColor = String(borderTop).match(/#[a-fA-F0-9]{3,6}/);
+                          const next = hasColor
+                            ? String(borderTop).replace(/#[a-fA-F0-9]{3,6}/, v)
+                            : `${borderTop} ${v}`;
+                          updateProp("style.borderTop", next);
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Top Border Thickness</Label>
+                      <Select
+                        value={(() => {
+                          const borderTop = style.borderTop || "1px solid #e1e8ed";
+                          const match = String(borderTop).match(/^(\d+)px/);
+                          return match ? match[1] : "1";
+                        })()}
+                        onChange={(v) => {
+                          const borderTop = style.borderTop || "1px solid #e1e8ed";
+                          const next = String(borderTop).match(/^\d+px/)
+                            ? String(borderTop).replace(/^\d+px/, `${v}px`)
+                            : `${v}px ${borderTop}`;
+                          updateProp("style.borderTop", next);
+                        }}
+                        options={[
+                          { label: "0px", value: "0" },
+                          { label: "1px", value: "1" },
+                          { label: "2px", value: "2" },
+                          { label: "3px", value: "3" },
+                          { label: "4px", value: "4" },
+                        ]}
+                      />
+                    </div>
+                  </InputRow>
+                </>
+              )}
             </Section>
           )}
 
@@ -1529,7 +1926,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
           {isDivider && (
             <Section title="Divider Style">
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Color</Label>
+                <Label className="text-xs text-muted-foreground">Color</Label>
                 <ColorInput 
                   value={(() => {
                     // Extract color from borderTop (e.g., "1px solid #e1e8ed")
@@ -1546,8 +1943,8 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Thickness</Label>
-                <Select 
+                <Label className="text-xs text-muted-foreground">Thickness</Label>
+                <SelectDropdown 
                   value={(() => {
                     const borderTop = style.borderTop || "1px solid #e1e8ed";
                     const match = borderTop.match(/^(\d+)px/);
@@ -1567,7 +1964,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Margin</Label>
+                <Label className="text-xs text-muted-foreground">Margin</Label>
                 <NumberInput 
                   value={style.margin || "24px 0"} 
                   onChange={(v) => updateProp("style.margin", v)} 

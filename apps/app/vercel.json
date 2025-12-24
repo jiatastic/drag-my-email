@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "cd ../.. && bun run build --filter=@react-email-builder/app",
+  "buildCommand": "npx convex deploy --cmd 'cd ../.. && bun run build --filter=@react-email-builder/app'",
   "installCommand": "cd ../.. && bun install",
   "framework": "nextjs",
   "outputDirectory": ".next"

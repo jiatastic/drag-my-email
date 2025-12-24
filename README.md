@@ -87,6 +87,20 @@ The main product - a drag-and-drop email builder with:
 - **Code Export**: View and copy React JSX or HTML code
 - **Template Management**: Save and load email templates
 
+#### Brand assets (`/assets`)
+
+The app includes an `/assets` page that lets users:
+
+- Import a brand identity profile via Firecrawl (`branding`, optionally `summary` / `screenshot`)
+- Generate marketing images via Replicate
+- Use the selected brand context to guide AI email generation
+
+Required environment variables (server-side / Convex actions):
+
+- `FIRECRAWL_API_KEY`: Firecrawl API key (used by `apps/app/convex/brands.ts`)
+- `AI_GATEWAY_API_KEY`: Vercel AI Gateway key for image generation (used by `apps/app/convex/marketingAssets.ts`)
+- `AI_GATEWAY_IMAGE_MODEL` (optional): Model for image generation (default: `gpt-image-1`)
+
 ### `apps/web` - Marketing Site (Coming Soon)
 
 Landing page and marketing website for the product.

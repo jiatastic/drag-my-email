@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Script from "next/script";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import "@/styles/globals.css";
 
 export const metadata: Metadata = {
@@ -11,12 +13,21 @@ export const metadata: Metadata = {
     description: "Build beautiful, responsive emails with a visual drag-and-drop editor. Export clean React Email code & html instantly.",
     type: "website",
     url: "https://drag.email",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "drag.email - drag & drop email builder",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "drag.email - drag & drop email like lego blocks",
-      description: "Build beautiful, responsive emails with a visual drag-and-drop editor. Export clean React Email code & html instantly.",
-    },
+    description: "Build beautiful, responsive emails with a visual drag-and-drop editor. Export clean React Email code & html instantly.",
+    images: ["/og-image.png"],
+  },
 };
 
 export default function RootLayout({
@@ -25,7 +36,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={`${GeistSans.variable} ${GeistMono.variable}`}>
       <head>
         {process.env.NODE_ENV === "development" && (
           <Script
@@ -35,7 +46,7 @@ export default function RootLayout({
           />
         )}
       </head>
-      <body className="bg-background text-foreground font-sans antialiased min-h-screen">
+      <body className={`${GeistSans.className} bg-background text-foreground antialiased min-h-screen`}>
         {children}
         <Script
           defer

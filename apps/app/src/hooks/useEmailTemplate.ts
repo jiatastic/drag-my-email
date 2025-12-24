@@ -1,13 +1,24 @@
 import { useState, useCallback } from "react";
 import type { EmailComponent, EmailGlobalStyles } from "@/types";
 
-// Default global styles for emails
-const defaultGlobalStyles: EmailGlobalStyles = {
+// Default global styles for emails (light mode).
+export const DEFAULT_LIGHT_GLOBAL_STYLES: EmailGlobalStyles = {
   bodyBackgroundColor: "#f4f4f5",
   containerBackgroundColor: "#ffffff",
   maxWidth: "600px",
   fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
   textColor: "#1a1a1a",
+  fontSize: "16px",
+  containerPadding: "20px",
+};
+
+// Default global styles for emails (dark mode).
+export const DEFAULT_DARK_GLOBAL_STYLES: EmailGlobalStyles = {
+  bodyBackgroundColor: "#0b1220",
+  containerBackgroundColor: "#0f172a",
+  maxWidth: "600px",
+  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  textColor: "#e5e7eb",
   fontSize: "16px",
   containerPadding: "20px",
 };
@@ -124,7 +135,7 @@ function moveComponentInTree(
 export function useEmailTemplate() {
   const [components, setComponents] = useState<EmailComponent[]>([]);
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
-  const [globalStyles, setGlobalStyles] = useState<EmailGlobalStyles>(defaultGlobalStyles);
+  const [globalStyles, setGlobalStyles] = useState<EmailGlobalStyles>(DEFAULT_LIGHT_GLOBAL_STYLES);
 
   const addComponent = useCallback((component: EmailComponent) => {
     setComponents((prev) => [...prev, component]);

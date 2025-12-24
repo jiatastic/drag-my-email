@@ -2,15 +2,21 @@
 
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
+import Link from "next/link";
 import { ComponentPalette } from "./editor/ComponentPalette";
 import { EmailCanvas } from "./editor/EmailCanvas";
 import { PropertyPanel } from "./editor/PropertyPanel";
 import { CodePreview } from "./editor/CodePreview";
 import { TemplateManager } from "./templates/TemplateManager";
+import { AIAssistantPanel } from "./ai/AIAssistantPanel";
+import { UserMenu } from "./auth/UserMenu";
+import { ThemeToggle } from "./theme/ThemeToggle";
+import { useTheme } from "./theme/ThemeProvider";
 import { useEmailTemplate } from "@/hooks/useEmailTemplate";
+import { DEFAULT_DARK_GLOBAL_STYLES, DEFAULT_LIGHT_GLOBAL_STYLES } from "@/hooks/useEmailTemplate";
 import type { EmailComponent, TailwindConfig, DefaultChildComponent, EmailGlobalStyles } from "@/types";
 import { componentRegistry } from "@/lib/component-registry";
-import { useId, useState } from "react";
+import { useEffect, useId, useMemo, useState, useCallback } from "react";
 import { 
   Tabs, 
   TabsContent, 
@@ -19,12 +25,18 @@ import {
   ResizablePanelGroup,
   ResizablePanel,
   ResizableHandle,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@react-email-builder/ui";
-import { Settings2, FolderOpen, GripVertical, Eye, Code2, Monitor, Laptop, Smartphone, Layers, LayoutGrid, Sparkles } from "lucide-react";
+import { Settings2, FolderOpen, GripVertical, Eye, Code2, Monitor, Smartphone, Layers, LayoutGrid, Sparkles } from "lucide-react";
 
-export type DeviceType = "desktop" | "tablet" | "mobile";
+export type DeviceType = "desktop" | "mobile";
 
 export function EmailBuilder() {
+  const { resolvedTheme } = useTheme();
   const {
     components,
     selectedComponentId,
@@ -40,6 +52,24 @@ export function EmailBuilder() {
     setGlobalStyles,
     updateGlobalStyles,
   } = useEmailTemplate();
+
+  // Keep the email canvas defaults in sync with the app theme, but never overwrite user-customized styles.
+  const themeDefaultStyles = useMemo(
+    () => (resolvedTheme === "dark" ? DEFAULT_DARK_GLOBAL_STYLES : DEFAULT_LIGHT_GLOBAL_STYLES),
+    [resolvedTheme]
+  );
+  const lightDefaultsStr = useMemo(() => JSON.stringify(DEFAULT_LIGHT_GLOBAL_STYLES), []);
+  const darkDefaultsStr = useMemo(() => JSON.stringify(DEFAULT_DARK_GLOBAL_STYLES), []);
+  const globalStylesStr = useMemo(() => JSON.stringify(globalStyles), [globalStyles]);
+  useEffect(() => {
+    const isStillDefault = globalStylesStr === lightDefaultsStr || globalStylesStr === darkDefaultsStr;
+    if (!isStillDefault) return;
+    // Only swap when it actually changes, to avoid re-renders.
+    const nextStr = JSON.stringify(themeDefaultStyles);
+    if (globalStylesStr !== nextStr) {
+      setGlobalStyles(themeDefaultStyles);
+    }
+  }, [darkDefaultsStr, globalStylesStr, lightDefaultsStr, setGlobalStyles, themeDefaultStyles]);
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draggedType, setDraggedType] = useState<string | null>(null);
@@ -266,8 +296,24 @@ export function EmailBuilder() {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="h-screen bg-background">
-        <ResizablePanelGroup direction="horizontal" className="h-full" autoSaveId="email-builder-layout">
+      <div className="h-screen bg-background flex flex-col">
+        {/* Top Header Bar (sign in/up only) */}
+        <div className="h-12 border-b bg-background flex items-center justify-between px-4 flex-shrink-0">
+          <div className="flex items-center gap-4">
+            <Link href="/builder" className="text-sm font-semibold hover:underline">
+              Builder
+            </Link>
+            <Link href="/assets" className="text-sm font-semibold text-muted-foreground hover:text-foreground">
+              Assets
+            </Link>
+          </div>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <UserMenu />
+          </div>
+        </div>
+        
+        <ResizablePanelGroup direction="horizontal" className="flex-1" autoSaveId="email-builder-layout">
           {/* Left Sidebar - Component Palette & Layers */}
           <ResizablePanel 
             id="left-sidebar"
@@ -300,15 +346,17 @@ export function EmailBuilder() {
                 </TabsContent>
                 
                 <TabsContent value="ai" className="flex-1 m-0 overflow-hidden h-[calc(100%-44px)]">
-                  <div className="h-full flex flex-col items-center justify-center p-8">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center mb-4">
-                      <Sparkles className="h-8 w-8 text-white" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">AI Assistant</h3>
-                    <p className="text-sm text-gray-500 text-center max-w-md">
-                      AI features coming soon. Tell me what you'd like to do here.
-                    </p>
-                  </div>
+                  <AIAssistantPanel
+                    components={components}
+                    globalStyles={globalStyles}
+                    onApplyTemplate={useCallback((nextComponents: EmailComponent[]) => {
+                      setComponents(nextComponents);
+                      setSelectedComponentId(null);
+                    }, [])}
+                    onUpdateGlobalStyles={useCallback((styles: Partial<EmailGlobalStyles>) => {
+                      setGlobalStyles((prev) => ({ ...prev, ...styles }));
+                    }, [])}
+                  />
                 </TabsContent>
               </Tabs>
             </div>
@@ -323,43 +371,32 @@ export function EmailBuilder() {
               <div className="border-b bg-background">
                 <div className="p-4 flex items-center justify-between">
                   <div>
-                    <h2 className="text-sm font-semibold text-gray-900">Email Preview</h2>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <h2 className="text-sm font-semibold text-foreground">Email Preview</h2>
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       {components.length} component{components.length !== 1 ? "s" : ""} added
                     </p>
                   </div>
                   
                   <div className="flex items-center gap-3">
                   {/* Device selector */}
-                  <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+                  <div className="flex items-center gap-1 rounded-lg border border-border bg-muted p-1">
                     <button
                       onClick={() => setDeviceType("desktop")}
                       className={`p-2 rounded-md transition-colors ${
                         deviceType === "desktop" 
-                          ? "bg-white shadow-sm text-gray-900" 
-                          : "text-gray-500 hover:text-gray-700"
+                          ? "bg-background shadow-sm text-foreground" 
+                          : "text-muted-foreground hover:text-foreground"
                       }`}
                       title="Desktop (full width)"
                     >
                       <Monitor className="h-4 w-4" />
                     </button>
                     <button
-                      onClick={() => setDeviceType("tablet")}
-                      className={`p-2 rounded-md transition-colors ${
-                        deviceType === "tablet" 
-                          ? "bg-white shadow-sm text-gray-900" 
-                          : "text-gray-500 hover:text-gray-700"
-                      }`}
-                      title="Tablet (768px)"
-                    >
-                      <Laptop className="h-4 w-4" />
-                    </button>
-                    <button
                       onClick={() => setDeviceType("mobile")}
                       className={`p-2 rounded-md transition-colors ${
                         deviceType === "mobile" 
-                          ? "bg-white shadow-sm text-gray-900" 
-                          : "text-gray-500 hover:text-gray-700"
+                          ? "bg-background shadow-sm text-foreground" 
+                          : "text-muted-foreground hover:text-foreground"
                       }`}
                       title="Mobile (375px)"
                     >
@@ -368,13 +405,13 @@ export function EmailBuilder() {
                 </div>
                 
                     {/* View toggle (Preview / Code) */}
-                    <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+                    <div className="flex items-center gap-1 rounded-lg border border-border bg-muted p-1">
                       <button
                         onClick={() => setPreviewTab("preview")}
                         className={`p-2 rounded-md transition-colors ${
                           previewTab === "preview" 
-                            ? "bg-white shadow-sm text-gray-900" 
-                            : "text-gray-500 hover:text-gray-700"
+                            ? "bg-background shadow-sm text-foreground" 
+                            : "text-muted-foreground hover:text-foreground"
                         }`}
                         title="Preview"
                     >
@@ -384,8 +421,8 @@ export function EmailBuilder() {
                         onClick={() => setPreviewTab("code")}
                         className={`p-2 rounded-md transition-colors ${
                           previewTab === "code" 
-                            ? "bg-white shadow-sm text-gray-900" 
-                            : "text-gray-500 hover:text-gray-700"
+                            ? "bg-background shadow-sm text-foreground" 
+                            : "text-muted-foreground hover:text-foreground"
                         }`}
                         title="View Code"
                     >
@@ -397,7 +434,7 @@ export function EmailBuilder() {
               </div>
               
               {/* Content */}
-              <div className="flex-1 overflow-hidden">
+              <div className="flex-1 overflow-auto min-h-0">
                 {previewTab === "preview" ? (
                   <EmailCanvas
                     components={components}

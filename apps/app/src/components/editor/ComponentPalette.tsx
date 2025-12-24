@@ -495,6 +495,74 @@ function NumberedListPreview() {
   );
 }
 
+function GalleryPreview() {
+  return (
+    <div className="w-full h-14 flex items-center justify-center">
+      <motion.div
+        className="w-14 h-10 bg-gray-50 rounded-md border border-gray-200 p-1.5 flex flex-col gap-1.5"
+        whileHover={{ borderColor: "var(--primary)", y: -1 }}
+        transition={{ type: "spring", stiffness: 400, damping: 25 }}
+      >
+        <div className="h-1 w-10 bg-gray-300 rounded-full mx-auto" />
+        <div className="grid grid-cols-3 gap-1 flex-1">
+          {[0, 1, 2].map((i) => (
+            <motion.div
+              key={i}
+              className="rounded-sm bg-gray-200"
+              initial={{ opacity: 0.8 }}
+              whileHover={{ scale: 1.04, backgroundColor: "var(--primary)" }}
+              transition={{ delay: i * 0.03 }}
+            />
+          ))}
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+function MarketingPreview() {
+  return (
+    <div className="w-full h-14 flex items-center justify-center">
+      <motion.div
+        className="w-14 h-10 bg-white rounded-md border border-gray-200 p-1.5 grid grid-cols-[1.2fr,0.8fr] gap-1"
+        whileHover={{ borderColor: "var(--primary)", y: -1 }}
+        transition={{ type: "spring", stiffness: 400, damping: 25 }}
+      >
+        <div className="flex flex-col justify-between">
+          <div className="space-y-0.5">
+            <div className="h-1.5 w-10 rounded-full bg-gray-900" />
+            <div className="h-1 w-12 rounded-full bg-gray-500" />
+          </div>
+          <div className="flex gap-1 items-center">
+            <div className="h-1 w-8 rounded-full bg-primary/80" />
+            <div className="h-1 w-5 rounded-full bg-gray-300" />
+          </div>
+        </div>
+        <div className="rounded-md bg-gradient-to-br from-indigo-100 to-indigo-200 border border-indigo-100" />
+      </motion.div>
+    </div>
+  );
+}
+
+function TestimonialPreview() {
+  return (
+    <div className="w-full h-14 flex items-center justify-center">
+      <motion.div
+        className="w-14 h-10 bg-white rounded-md border border-gray-200 p-1.5 flex items-center gap-1.5"
+        whileHover={{ borderColor: "var(--primary)", y: -1 }}
+        transition={{ type: "spring", stiffness: 400, damping: 25 }}
+      >
+        <div className="w-4 h-4 rounded-full bg-gradient-to-br from-gray-300 to-gray-200" />
+        <div className="flex-1 space-y-0.5">
+          <div className="h-1.5 w-12 rounded-full bg-gray-700" />
+          <div className="h-1 w-10 rounded-full bg-gray-400" />
+          <div className="h-1 w-8 rounded-full bg-gray-300" />
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 const componentPreviews: Record<string, React.FC> = {
   Container: ContainerPreview,
   Section: SectionPreview,
@@ -507,6 +575,9 @@ const componentPreviews: Record<string, React.FC> = {
   Divider: DividerPreview,
   Stats: StatsPreview,
   NumberedList: NumberedListPreview,
+  Gallery: GalleryPreview,
+  Marketing: MarketingPreview,
+  Testimonial: TestimonialPreview,
   Button: ButtonPreview,
   Link: LinkPreview,
   Image: ImagePreview,
@@ -566,7 +637,7 @@ function DraggableComponent({ component, registryKey, index }: DraggableComponen
       )}
     >
       <motion.div 
-        className="group relative bg-white rounded-lg overflow-hidden border border-gray-200"
+        className="group relative bg-background rounded-lg overflow-hidden border border-border"
         whileHover={{ 
           y: -3,
           boxShadow: "0 8px 20px -6px rgba(0,0,0,0.1)",
@@ -579,8 +650,8 @@ function DraggableComponent({ component, registryKey, index }: DraggableComponen
         <PreviewComponent />
         
         {/* Label */}
-        <div className="px-2 py-1.5 border-t border-gray-100 bg-gray-50/50">
-          <span className="text-[10px] font-semibold text-gray-500 group-hover:text-primary block text-center transition-colors">
+        <div className="px-2 py-1.5 border-t border-border bg-muted/40">
+          <span className="text-[10px] font-semibold text-muted-foreground group-hover:text-primary block text-center transition-colors">
             {component.name}
           </span>
         </div>
@@ -607,10 +678,10 @@ function CategorySection({
       transition={{ duration: 0.3 }}
     >
       <div className="flex items-center gap-2 mb-2.5 px-0.5">
-        <h3 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+        <h3 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
           {title}
         </h3>
-        <div className="flex-1 h-px bg-gray-100" />
+        <div className="flex-1 h-px bg-border" />
       </div>
       <div className="grid grid-cols-2 gap-2">
         {components.map(({ key, metadata }, i) => (
@@ -643,16 +714,16 @@ export function ComponentPalette() {
   const footerComponents = componentsWithKeys.filter(c => c.metadata.category === "footer");
 
   return (
-    <div className="h-full border-r border-gray-200 bg-white flex flex-col">
+    <div className="h-full border-r border-border bg-background flex flex-col">
       {/* Header */}
       <motion.div 
-        className="p-4 border-b border-gray-100"
+        className="p-4 border-b border-border"
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        <h2 className="text-sm font-semibold text-gray-900">Components</h2>
-        <p className="text-[11px] text-gray-400 mt-0.5">
+        <h2 className="text-sm font-semibold text-foreground">Components</h2>
+        <p className="text-[11px] text-muted-foreground mt-0.5">
           Drag to build
         </p>
       </motion.div>

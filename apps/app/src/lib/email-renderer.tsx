@@ -20,6 +20,7 @@ import {
 } from "@react-email/components";
 // @ts-expect-error - Package types not properly exported
 import { ResponsiveRow, ResponsiveColumn } from "@responsive-email/react-email";
+import { SOCIAL_ICON_ASSETS, getSocialIconBorderRadius, getGoogleFaviconUrl } from "@/lib/social-icons";
 
 const componentMap: Record<string, React.ComponentType<any>> = {
   Container,
@@ -62,11 +63,83 @@ const SOCIAL_PLATFORMS_DATA: Record<string, { name: string; color: string; icon:
   slack: { name: "Slack", color: "#4A154B", icon: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z'/%3E%3C/svg%3E" },
 };
 
+const DEFAULT_GALLERY_PROPS = {
+  sectionTitle: "Our products",
+  headline: "Elegant Style",
+  description:
+    "We spent two years in development to bring you the next generation of our award-winning home brew grinder. From the finest pour-overs to the coarsest cold brews, your coffee will never be the same again.",
+  titleColor: "#4f46e5",
+  headlineColor: "#111827",
+  descriptionColor: "#6b7280",
+  images: [
+    { src: "https://react.email/static/stagg-eletric-kettle.jpg", alt: "Stagg Electric Kettle", href: "#" },
+    { src: "https://react.email/static/ode-grinder.jpg", alt: "Ode Grinder", href: "#" },
+    { src: "https://react.email/static/atmos-vacuum-canister.jpg", alt: "Atmos Vacuum Canister", href: "#" },
+    { src: "https://react.email/static/clyde-electric-kettle.jpg", alt: "Clyde Electric Kettle", href: "#" },
+  ],
+  columns: 2,
+  imageHeight: 288,
+  borderRadius: "12px",
+  gap: "16px",
+  style: {
+    padding: "16px 0",
+  },
+};
+
+const DEFAULT_MARKETING_PROPS = {
+  headerBgColor: "#292524",
+  headerTitle: "Coffee Storage",
+  headerDescription: "Keep your coffee fresher for longer with innovative technology.",
+  headerLinkText: "Shop now →",
+  headerLinkUrl: "#",
+  headerImage: "https://react.email/static/coffee-bean-storage.jpg",
+  headerImageAlt: "Coffee Bean Storage",
+  products: [
+    {
+      imageUrl: "https://react.email/static/atmos-vacuum-canister.jpg",
+      altText: "Auto-Sealing Vacuum Canister",
+      title: "Auto-Sealing Vacuum Canister",
+      description: "A container that automatically creates an airtight seal with a button press.",
+      linkUrl: "#",
+    },
+    {
+      imageUrl: "https://react.email/static/vacuum-canister-clear-glass-bundle.jpg",
+      altText: "3-Pack Vacuum Containers",
+      title: "3-Pack Vacuum Containers",
+      description: "Keep your coffee fresher for longer with this set of high-performance vacuum containers.",
+      linkUrl: "#",
+    },
+  ],
+  containerBgColor: "#ffffff",
+  borderRadius: "8px",
+  style: {
+    padding: "0",
+  },
+};
+
+function sanitizeRuntimeProps(componentType: string, rawProps: Record<string, any>) {
+  const props = { ...rawProps };
+  // These are builder-only layout configuration fields and should never be passed to the runtime renderer.
+  // Passing them down to ResponsiveRow (table-based) triggers React unknown-prop warnings.
+  delete props.columnCount;
+  delete props.columnGap;
+  // Defensive: allow callers to pass children separately.
+  return props;
+}
+
 export function renderComponent(component: EmailComponent): React.ReactElement {
   // Special handling for Image component with alignment
   if (component.type === "Image") {
     const imageProps = component.props || {};
     const textAlign = imageProps.style?.textAlign || "center";
+    // Keep preview rendering consistent with the editor canvas:
+    // - Constrain images to the container width
+    // - Preserve aspect ratio
+    // Note: We intentionally do NOT force `width: 100%` to avoid upscaling small images.
+    const defaultImgStyle = {
+      maxWidth: "100%",
+      height: "auto",
+    };
     
     // Wrap Image in Section with textAlign for proper email alignment
     return React.createElement(
@@ -84,12 +157,49 @@ export function renderComponent(component: EmailComponent): React.ReactElement {
         width: imageProps.width,
         height: imageProps.height,
         style: {
+          ...defaultImgStyle,
           ...imageProps.style,
           display: "block",
           margin: textAlign === "center" ? "0 auto" : textAlign === "right" ? "0 0 0 auto" : "0",
         }
       })
     );
+  }
+
+  // Special handling for Button/Link alignment:
+  // In emails, aligning inline/inline-block elements is reliably achieved by applying textAlign on a wrapper.
+  if (component.type === "Button" || component.type === "Link") {
+    const rawProps = component.props || {};
+    const style = rawProps.style || {};
+    const textAlign = style.textAlign;
+
+    if (textAlign) {
+      const innerStyle = { ...style };
+      delete (innerStyle as any).textAlign;
+
+      const Inner = component.type === "Button" ? Button : Link;
+      const innerProps: Record<string, any> = {
+        ...rawProps,
+        style: innerStyle,
+        key: `${component.id}-inner`,
+      };
+
+      if (component.className) {
+        innerProps.className = component.className;
+      }
+
+      return React.createElement(
+        Section,
+        {
+          key: component.id,
+          style: {
+            textAlign: textAlign as any,
+            padding: "0",
+          },
+        },
+        React.createElement(Inner, innerProps)
+      );
+    }
   }
   
   // Special handling for SocialIcons component
@@ -100,19 +210,17 @@ export function renderComponent(component: EmailComponent): React.ReactElement {
     const iconStyle = component.props?.iconStyle || "colored";
     const spacing = component.props?.spacing || 12;
     const style = component.props?.style || {};
-    
-    const getBorderRadius = () => {
-      if (iconShape === "circle") return "50%";
-      if (iconShape === "rounded") return "6px";
-      return "0";
-    };
-    
+
+    const borderRadius = getSocialIconBorderRadius(iconShape);
+
     const getIconBg = (platformKey: string) => {
-      const platform = SOCIAL_PLATFORMS_DATA[platformKey];
+      const platform = SOCIAL_ICON_ASSETS[platformKey as keyof typeof SOCIAL_ICON_ASSETS];
       if (!platform) return "#888";
-      if (iconStyle === "colored") return platform.color;
+      if (iconStyle === "colored") return platform.brandColor;
       if (iconStyle === "dark") return "#1a1a1a";
-      return "#f0f0f0";
+      if (iconStyle === "light") return "#f0f0f0";
+      // official mode: don't paint a brand background (the icon itself is branded)
+      return "transparent";
     };
     
     const alignment = style.textAlign === "center" ? "center" : style.textAlign === "right" ? "right" : "left";
@@ -127,8 +235,19 @@ export function renderComponent(component: EmailComponent): React.ReactElement {
         }
       },
       platforms.map((p: { platform: string; url: string }, i: number) => {
-        const platformData = SOCIAL_PLATFORMS_DATA[p.platform];
+        const platformData = SOCIAL_ICON_ASSETS[p.platform as keyof typeof SOCIAL_ICON_ASSETS];
         if (!platformData) return null;
+
+        const glyphBlack = platformData.whiteGlyphDataUri.replace("fill='white'", "fill='black'");
+        const glyphSrc = iconStyle === "light" ? glyphBlack : platformData.whiteGlyphDataUri;
+
+        // Use Google Favicon API for official icons - most reliable way to get brand favicons
+        const officialSrc = getGoogleFaviconUrl(platformData.officialDomain, iconSize);
+        const src = iconStyle === "official" ? officialSrc : glyphSrc;
+
+        const innerSize = iconStyle === "official" ? iconSize : Math.round(iconSize * 0.55);
+        const pad = iconStyle === "official" ? 0 : Math.max(0, Math.round((iconSize - innerSize) / 2));
+
         return React.createElement(
           Link,
           {
@@ -136,24 +255,32 @@ export function renderComponent(component: EmailComponent): React.ReactElement {
             href: p.url || "#",
             style: {
               display: "inline-block",
-              width: iconSize,
-              height: iconSize,
               backgroundColor: getIconBg(p.platform),
-              borderRadius: getBorderRadius(),
+              borderRadius,
               textDecoration: "none",
               marginRight: i < platforms.length - 1 ? spacing : 0,
               verticalAlign: "middle",
+              lineHeight: 0,
+              fontSize: 0,
+              padding: pad,
+              width: iconStyle === "official" ? iconSize : undefined,
+              height: iconStyle === "official" ? iconSize : undefined,
+              border: iconStyle === "official" ? "1px solid #e5e7eb" : undefined,
+              background: iconStyle === "official" ? "transparent" : undefined,
             }
           },
           React.createElement(Img, {
-            src: platformData.icon,
+            src,
             alt: platformData.name,
-            width: Math.round(iconSize * 0.55),
-            height: Math.round(iconSize * 0.55),
+            width: innerSize,
+            height: innerSize,
             style: {
               display: "block",
-              margin: "auto",
-              paddingTop: Math.round(iconSize * 0.225),
+              border: 0,
+              outline: "none",
+              textDecoration: "none",
+              borderRadius: iconStyle === "official" ? borderRadius : undefined,
+              objectFit: iconStyle === "official" ? ("contain" as any) : undefined,
             }
           })
         );
@@ -182,11 +309,17 @@ export function renderComponent(component: EmailComponent): React.ReactElement {
             ResponsiveColumn,
             {
               key: i,
+              // Force columns to align left instead of the component default centering
+              align: "left",
+              valign: "top",
+              width: "33.33%",
+              style: { textAlign: "left" as const },
             },
             React.createElement(
               Text,
               {
                 className: "m-0 text-left text-[18px] leading-[24px] font-bold tracking-tight text-gray-900 tabular-nums",
+                style: { textAlign: "left" as const },
               },
               stat.value
             ),
@@ -194,6 +327,7 @@ export function renderComponent(component: EmailComponent): React.ReactElement {
               Text,
               {
                 className: "m-0 text-left text-[12px] leading-[18px] text-gray-500",
+                style: { textAlign: "left" as const },
               },
               stat.title
             ),
@@ -201,6 +335,7 @@ export function renderComponent(component: EmailComponent): React.ReactElement {
               Text,
               {
                 className: "m-0 text-left text-[12px] leading-[18px] text-gray-400 mt-1",
+                style: { textAlign: "left" as const },
               },
               stat.description
             ) : null
@@ -212,7 +347,22 @@ export function renderComponent(component: EmailComponent): React.ReactElement {
   
   // Special handling for NumberedList component - using official react.email structure
   if (component.type === "NumberedList") {
-    const items = component.props?.items || [];
+    // Default items to ensure content is always present
+    const DEFAULT_NUMBERED_LIST_ITEMS = [
+      { title: "Lightning Fast Performance", description: "Experience blazing fast speeds with our optimized infrastructure. Your workflows will be 10x more efficient." },
+      { title: "Enterprise-Grade Security", description: "Bank-level encryption and SOC 2 compliance keep your data safe. We take security seriously." },
+      { title: "24/7 Priority Support", description: "Our dedicated support team is available around the clock to help you succeed. Average response time under 2 hours." },
+    ];
+    
+    // Use provided items or fallback to defaults, and ensure each item has title/description
+    const rawItems = component.props?.items || [];
+    const items = (rawItems.length > 0 ? rawItems : DEFAULT_NUMBERED_LIST_ITEMS).map(
+      (item: { title?: string; description?: string }, idx: number) => ({
+        title: item?.title && item.title.trim() !== "" ? item.title : DEFAULT_NUMBERED_LIST_ITEMS[idx % DEFAULT_NUMBERED_LIST_ITEMS.length]?.title || "Feature",
+        description: item?.description && item.description.trim() !== "" ? item.description : DEFAULT_NUMBERED_LIST_ITEMS[idx % DEFAULT_NUMBERED_LIST_ITEMS.length]?.description || "Description of this feature.",
+      })
+    );
+    
     const numberBgColor = component.props?.numberBgColor || "#4f46e5";
     const style = component.props?.style || {};
     
@@ -296,18 +446,28 @@ export function renderComponent(component: EmailComponent): React.ReactElement {
   // Special handling for Gallery component - exact match to react.email template
   if (component.type === "Gallery") {
     const props = component.props || {};
-    const sectionTitle = props.sectionTitle || "Our products";
-    const headline = props.headline || "Elegant Style";
-    const description = props.description || "";
-    const titleColor = props.titleColor || "#4f46e5";
-    const headlineColor = props.headlineColor || "#111827";
-    const descriptionColor = props.descriptionColor || "#6b7280";
-    const images = props.images || [];
-    const columns = props.columns || 2;
-    const imageHeight = props.imageHeight || 288;
-    const borderRadius = props.borderRadius || "12px";
-    const gap = props.gap || "16px";
-    const style = props.style || {};
+    const images = (props.images && props.images.length > 0 ? props.images : DEFAULT_GALLERY_PROPS.images).map(
+      (img: { src?: string; alt?: string; href?: string }, idx: number) => {
+        if (img?.src && img.src.trim() !== "") return img;
+        // Fallback to default images to avoid empty src
+        return DEFAULT_GALLERY_PROPS.images[idx % DEFAULT_GALLERY_PROPS.images.length];
+      }
+    );
+    const columnsValue = Number(props.columns ?? DEFAULT_GALLERY_PROPS.columns);
+    const columns = Math.min(
+      4,
+      Math.max(1, Number.isFinite(columnsValue) ? columnsValue : DEFAULT_GALLERY_PROPS.columns)
+    );
+    const imageHeight = props.imageHeight || DEFAULT_GALLERY_PROPS.imageHeight;
+    const borderRadius = props.borderRadius || DEFAULT_GALLERY_PROPS.borderRadius;
+    const gap = props.gap || DEFAULT_GALLERY_PROPS.gap;
+    const style = { ...DEFAULT_GALLERY_PROPS.style, ...(props.style || {}) };
+    const sectionTitle = props.sectionTitle || DEFAULT_GALLERY_PROPS.sectionTitle;
+    const headline = props.headline || DEFAULT_GALLERY_PROPS.headline;
+    const description = props.description || DEFAULT_GALLERY_PROPS.description;
+    const titleColor = props.titleColor || DEFAULT_GALLERY_PROPS.titleColor;
+    const headlineColor = props.headlineColor || DEFAULT_GALLERY_PROPS.headlineColor;
+    const descriptionColor = props.descriptionColor || DEFAULT_GALLERY_PROPS.descriptionColor;
 
     // Split images into rows
     const rows: typeof images[] = [];
@@ -316,7 +476,8 @@ export function renderComponent(component: EmailComponent): React.ReactElement {
     }
 
     const columnWidth = `${Math.floor(100 / columns)}%`;
-    const halfGap = `${parseInt(gap) / 2}px`;
+    const numericGap = parseInt(String(gap), 10);
+    const halfGap = `${(Number.isFinite(numericGap) ? numericGap : 16) / 2}px`;
 
     return React.createElement(
       Section,
@@ -403,17 +564,25 @@ export function renderComponent(component: EmailComponent): React.ReactElement {
   // Special handling for Marketing component - exact match to react.email template
   if (component.type === "Marketing") {
     const props = component.props || {};
-    const headerBgColor = props.headerBgColor || "#292524";
-    const headerTitle = props.headerTitle || "Coffee Storage";
-    const headerDescription = props.headerDescription || "";
-    const headerLinkText = props.headerLinkText || "Shop now →";
-    const headerLinkUrl = props.headerLinkUrl || "#";
-    const headerImage = props.headerImage || "";
-    const headerImageAlt = props.headerImageAlt || "";
-    const products = props.products || [];
-    const containerBgColor = props.containerBgColor || "#ffffff";
-    const borderRadius = props.borderRadius || "8px";
-    const style = props.style || {};
+    const headerBgColor = props.headerBgColor || DEFAULT_MARKETING_PROPS.headerBgColor;
+    const headerTitle = props.headerTitle || DEFAULT_MARKETING_PROPS.headerTitle;
+    const headerDescription = props.headerDescription || DEFAULT_MARKETING_PROPS.headerDescription;
+    const headerLinkText = props.headerLinkText || DEFAULT_MARKETING_PROPS.headerLinkText;
+    const headerLinkUrl = props.headerLinkUrl || DEFAULT_MARKETING_PROPS.headerLinkUrl;
+    const headerImage =
+      props.headerImage && props.headerImage.trim() !== ""
+        ? props.headerImage
+        : DEFAULT_MARKETING_PROPS.headerImage;
+    const headerImageAlt = props.headerImageAlt || DEFAULT_MARKETING_PROPS.headerImageAlt;
+    const products = (props.products && props.products.length > 0 ? props.products : DEFAULT_MARKETING_PROPS.products).map(
+      (p: { imageUrl?: string; altText?: string; title?: string; description?: string; linkUrl?: string }, idx: number) => {
+        if (p.imageUrl && p.imageUrl.trim() !== "") return p;
+        return DEFAULT_MARKETING_PROPS.products[idx % DEFAULT_MARKETING_PROPS.products.length];
+      }
+    );
+    const containerBgColor = props.containerBgColor || DEFAULT_MARKETING_PROPS.containerBgColor;
+    const borderRadius = props.borderRadius || DEFAULT_MARKETING_PROPS.borderRadius;
+    const style = { ...DEFAULT_MARKETING_PROPS.style, ...(props.style || {}) };
 
     return React.createElement(
       Section,
@@ -430,23 +599,19 @@ export function renderComponent(component: EmailComponent): React.ReactElement {
             borderRadius: borderRadius,
           },
         },
-        // Header row with background
+        // Header row with background (matches provided template)
         React.createElement(
           Section,
           {},
-          React.createElement(
-            "div",
-            {
-              style: {
-                backgroundColor: headerBgColor,
-                display: "flex",
-                padding: "24px",
-              },
-            },
-            // Text column
+        React.createElement(
+          Row as any,
+          {
+            className: "bg-[rgb(41,37,36)] border-separate [border-spacing:24px] m-0 table-fixed w-full",
+            style: { backgroundColor: headerBgColor },
+          },
             React.createElement(
-              "div",
-              { style: { flex: 1, paddingLeft: "12px" } },
+            Column as any,
+              { className: "pl-[12px]" },
               React.createElement(
                 Heading,
                 {
@@ -458,8 +623,7 @@ export function renderComponent(component: EmailComponent): React.ReactElement {
               React.createElement(
                 Text,
                 {
-                  className: "text-[14px] leading-[20px] m-0",
-                  style: { color: "rgba(255,255,255,0.6)" },
+                  className: "text-white/60 text-[14px] leading-[20px] m-0",
                 },
                 headerDescription
               ),
@@ -467,46 +631,37 @@ export function renderComponent(component: EmailComponent): React.ReactElement {
                 Link,
                 {
                   href: headerLinkUrl,
-                  className: "block text-[14px] leading-[20px] font-semibold mt-[12px] no-underline",
-                  style: { color: "rgba(255,255,255,0.8)" },
+                  className: "text-white/80 block text-[14px] leading-[20px] font-semibold mt-[12px] no-underline",
                 },
                 headerLinkText
               )
             ),
-            // Image column
             React.createElement(
-              "div",
-              { style: { width: "42%", height: "250px" } },
+              Column,
+              { className: "w-[42%] h-[250px]" },
               React.createElement(Img, {
                 src: headerImage,
                 alt: headerImageAlt,
-                className: "h-full -mr-[6px] object-cover object-center w-full",
-                style: { borderRadius: "4px" },
+                className: "rounded-[4px] h-full -mr-[6px] object-cover object-center w-full",
               })
             )
           )
         ),
-        // Products section
+        // Products section (matches provided template)
         React.createElement(
           Section,
           { className: "mb-[24px]" },
           React.createElement(
-            "div",
-            {
-              style: { display: "flex", gap: "24px", padding: "12px" },
-            },
-            products.map((product: { imageUrl: string; altText: string; title: string; description: string; linkUrl: string }, idx: number) =>
+            Row as any,
+            { className: "border-separate [border-spacing:12px] table-fixed w-full" },
+            products.map((product: { imageUrl: string; altText: string; title: string; description: string; linkUrl: string }) =>
               React.createElement(
-                "div",
-                {
-                  key: idx,
-                  style: { flex: 1, maxWidth: "180px", margin: "0 auto" },
-                },
+                Column as any,
+                { key: product.title, className: "mx-auto max-w-[180px]" },
                 React.createElement(Img, {
                   src: product.imageUrl,
                   alt: product.altText,
-                  className: "mb-[18px] w-full",
-                  style: { borderRadius: "4px" },
+                  className: "rounded-[4px] mb-[18px] w-full",
                 }),
                 React.createElement(
                   "div",
@@ -542,7 +697,9 @@ export function renderComponent(component: EmailComponent): React.ReactElement {
     const imageAlt = props.imageAlt || "Steve Jobs";
     const imageWidth = props.imageWidth || 320;
     const imageHeight = props.imageHeight || 320;
-    const quote = props.quote || "Design is not just what it looks like and feels like. Design is how it works.";
+    const quote =
+      props.quote ||
+      "Design is not just what it looks like and feels like. Design is how it works. The people who are crazy enough to think they can change the world are the ones who do. Innovation distinguishes between a leader and a follower.";
     const authorName = props.authorName || "Steve Jobs";
     const authorTitle = props.authorTitle || "Co-founder of Apple";
     const quoteColor = props.quoteColor || "#374151";
@@ -555,10 +712,7 @@ export function renderComponent(component: EmailComponent): React.ReactElement {
       {
         key: component.id,
         className: "mx-[12px] my-[16px] text-[14px] text-gray-600",
-        style: {
-          margin: style.margin || "12px",
-          padding: style.padding || "16px 0",
-        },
+        style: style || {},
       },
       // Left column - Image
       React.createElement(
@@ -628,7 +782,10 @@ export function renderComponent(component: EmailComponent): React.ReactElement {
     return React.createElement(Text, { key: component.id }, `Unknown component: ${component.type}`);
   }
 
-  const props: Record<string, any> = { ...component.props, key: component.id };
+  const props: Record<string, any> = {
+    ...sanitizeRuntimeProps(component.type, component.props || {}),
+    key: component.id,
+  };
   
   // Add className support for Tailwind
   if (component.className) {
@@ -688,10 +845,22 @@ export async function renderEmailTemplate(
   const textColor = globalStyles?.textColor || "#1a1a1a";
   const fontSize = globalStyles?.fontSize || "16px";
   const containerPadding = globalStyles?.containerPadding || "20px";
+  const viewportMeta = <meta name="viewport" content="width=device-width, initial-scale=1" />;
+  const colorSchemeMeta = (
+    <>
+      {/* Enable better dark mode handling in supporting email clients. */}
+      <meta name="color-scheme" content="light dark" />
+      <meta name="supported-color-schemes" content="light dark" />
+      <style>{`:root{color-scheme:light dark}`}</style>
+    </>
+  );
 
   const emailContent = useTailwind ? (
     <Html>
-      <Head />
+      <Head>
+        {viewportMeta}
+        {colorSchemeMeta}
+      </Head>
       <Tailwind config={tailwindConfig}>
         <Body 
           style={{ 
@@ -701,11 +870,14 @@ export async function renderEmailTemplate(
             backgroundColor: bodyBg,
             margin: 0, 
             padding: 0,
+            width: "100%",
+            WebkitTextSizeAdjust: "100%",
           }}
         >
           <Container 
             style={{ 
               maxWidth, 
+              width: "100%",
               margin: "0 auto",
               backgroundColor: containerBg,
               padding: containerPadding,
@@ -718,7 +890,10 @@ export async function renderEmailTemplate(
     </Html>
   ) : (
     <Html>
-      <Head />
+      <Head>
+        {viewportMeta}
+        {colorSchemeMeta}
+      </Head>
       <Body 
         style={{ 
           fontFamily,
@@ -727,11 +902,14 @@ export async function renderEmailTemplate(
           backgroundColor: bodyBg,
           margin: 0, 
           padding: 0,
+          width: "100%",
+          WebkitTextSizeAdjust: "100%",
         }}
       >
         <Container 
           style={{ 
             maxWidth, 
+            width: "100%",
             margin: "0 auto",
             backgroundColor: containerBg,
             padding: containerPadding,
@@ -812,6 +990,8 @@ export function componentsToJSX(components: EmailComponent[], indent = 0): strin
     
     Object.entries(props).forEach(([key, value]) => {
       if (key === "children") return;
+      // Strip builder-only fields that should never be passed to DOM/runtime components.
+      if (key === "columnCount" || key === "columnGap") return;
       
       if (typeof value === "string") {
         propsArray.push(`${key}="${value}"`);

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type ElementType, Fragment, useRef, useEffect } from "react";
+import { useState, type ElementType, Fragment, useEffect, useRef } from "react";
+import NextImage from "next/image";
 import { motion } from "motion/react";
 import {
   DndContext,
@@ -2270,6 +2271,97 @@ function PropertyPanel({
   );
 }
 
+// Rotating headlines data
+const headlines = [
+  {
+    line1: "Drag. Drop. Send.",
+    line2: "Email design made simple.",
+    highlight: "Send"
+  },
+  {
+    line1: "The email builder",
+    line2: "you'll actually enjoy using.",
+    highlight: "enjoy"
+  },
+  {
+    line1: "Let AI craft your emails.",
+    line2: "You just hit send.",
+    highlight: "AI"
+  }
+];
+
+interface TemplatePreview {
+  id: string;
+  title: string;
+  description: string;
+  badge: string;
+  src: string;
+}
+
+// Curated screenshot gallery for marketing (served from apps/web/public/examples)
+const templatePreviews: TemplatePreview[] = [
+  {
+    id: "udacity",
+    title: "Modern landing email",
+    description: "Clean hierarchy, strong CTA, and tasteful gradients.",
+    badge: "Modern",
+    src: "/examples/template-udacity-ai.png",
+  },
+  {
+    id: "uber",
+    title: "Dark editorial layout",
+    description: "High-contrast design with icon-led benefit blocks.",
+    badge: "Dark",
+    src: "/examples/template-uber-shuttle.png",
+  },
+  {
+    id: "mgm",
+    title: "Luxury newsletter",
+    description: "Premium spacing and typography for high-intent offers.",
+    badge: "Luxury",
+    src: "/examples/template-mgm-rewards.png",
+  },
+  {
+    id: "wayfair",
+    title: "Bold typographic promo",
+    description: "Big type that sells the message instantly.",
+    badge: "Type",
+    src: "/examples/template-wayfair.png",
+  },
+  {
+    id: "yelp",
+    title: "Lifestyle + content",
+    description: "Image-first hero with a clear, single CTA.",
+    badge: "Content",
+    src: "/examples/template-yelp.png",
+  },
+  {
+    id: "pacsun",
+    title: "Seasonal retail",
+    description: "Strong color blocks and deal-focused composition.",
+    badge: "Retail",
+    src: "/examples/template-pacsun.png",
+  },
+  {
+    id: "cyberpunk",
+    title: "Cinematic campaign",
+    description: "Immersive visuals and dramatic section breaks.",
+    badge: "Bold",
+    src: "/examples/template-cyberpunk.png",
+  },
+  {
+    id: "producthunt",
+    title: "Minimal announcement",
+    description: "Simple layout that feels fast and trustworthy.",
+    badge: "Minimal",
+    src: "/examples/template-producthunt.png",
+  },
+];
+
+const templateBadges = Array.from(
+  templatePreviews.reduce((set, tpl) => set.add(tpl.badge), new Set<string>()),
+);
+
 export default function Home() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -2284,6 +2376,17 @@ export default function Home() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draggedType, setDraggedType] = useState<string | null>(null);
   const [mobileTab, setMobileTab] = useState<"components" | "preview" | "properties">("preview");
+  const [headlineIndex, setHeadlineIndex] = useState(0);
+  const [isTemplateGalleryReady, setIsTemplateGalleryReady] = useState(false);
+  const loadedTemplateSrcsRef = useRef<Set<string>>(new Set());
+
+  // Rotate headlines every 4 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setHeadlineIndex((prev) => (prev + 1) % headlines.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
   const { setNodeRef, isOver } = useDroppable({ id: "canvas" });
@@ -2419,264 +2522,336 @@ export default function Home() {
     if (selectedId === id) setSelectedId(null);
   };
 
+  const getAppBaseUrl = () => {
+    const envUrl = process.env.NEXT_PUBLIC_APP_URL;
+    if (envUrl) return envUrl.replace(/\/+$/, "");
+    if (typeof window === "undefined") return "";
+
+    const { protocol, hostname, port } = window.location;
+    const isLocalhost = hostname === "localhost" || hostname === "127.0.0.1";
+    if (isLocalhost) {
+      // Local dev: app runs on 3000 (per project convention)
+      return `${protocol}//${hostname}:3000`;
+    }
+
+    if (hostname.startsWith("app.")) {
+      return `${protocol}//${hostname}`;
+    }
+
+    return `${protocol}//app.${hostname}`;
+  };
+
+  const handleLoginClick = () => {
+    const baseUrl = getAppBaseUrl();
+    const loginUrl = new URL("/login", baseUrl || (typeof window !== "undefined" ? window.location.origin : "http://localhost"));
+    loginUrl.searchParams.set("redirect", "/builder");
+
+    // Always navigate in the same tab. Popups often end up as new tabs and are commonly blocked.
+    if (typeof window !== "undefined") window.location.href = loginUrl.toString();
+  };
+
+  const handleTryItClick = () => {
+    const el = typeof document !== "undefined" ? document.getElementById("try-editor") : null;
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="bg-white">
+      <div className="bg-white h-[100svh] overflow-y-auto scroll-smooth snap-y snap-mandatory scroll-pt-28">
         {/* Floating pill navbar */}
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-3xl px-4">
-          <motion.header 
-            className="flex items-center justify-between px-4 py-2.5 bg-white/90 backdrop-blur-xl rounded-full border border-white/50 shadow-[0_8px_32px_rgba(0,0,0,0.08)]"
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-xl px-4">
+          <motion.header
+            className="flex items-center justify-between px-5 py-3 bg-[hsla(0,0%,93%,0.72)] backdrop-blur-xl rounded-full shadow-sm"
             initial={{ y: -50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25, delay: 0.3 }}
           >
             {/* Logo */}
-            <div className="flex items-center gap-2.5 text-[#14171a] font-semibold text-base">
+            <div className="flex items-center gap-3 text-[#14171a] font-semibold text-lg">
               <MousePointerClick className="h-8 w-8 text-primary" />
               drag.email
             </div>
             
-            {/* Coming soon bubble */}
-            <motion.div
-              className="px-4 py-1.5 bg-gradient-to-r from-primary/10 via-primary/5 to-primary/10 rounded-full border border-primary/20"
-              whileHover={{ scale: 1.05 }}
+            {/* Log In button */}
+            <button
+              type="button"
+              onClick={handleLoginClick}
+              className="px-3 py-2 text-base font-semibold text-[#14171a] hover:text-primary transition-colors"
             >
-              <span className="text-sm font-medium text-primary">✨ Coming soon</span>
-            </motion.div>
+              Log In
+            </button>
           </motion.header>
         </div>
         
         {/* Spacer for fixed navbar */}
-        <div className="h-20"></div>
+        <div className="h-24 md:h-28"></div>
 
         <main className="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16">
-          <section className="py-12 max-w-2xl relative overflow-visible">
-            {/* Mobile: Simple fade-in animation */}
-            <div className="md:hidden">
-              <h1 className="text-2xl sm:text-3xl font-semibold text-[#14171a] leading-tight">
-                <motion.span
+          <motion.section
+            className="py-6 md:py-12 max-w-4xl mx-auto text-center relative overflow-visible snap-start min-h-[calc(100svh-112px)] flex flex-col justify-center"
+            initial={{ opacity: 0, y: 18 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.35 }}
+            transition={{ duration: 0.55, ease: "easeOut" }}
+          >
+            {/* Announcement Badge */}
+            <motion.div 
+              className="flex justify-center mb-4 md:mb-6"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/25 shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
+                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary">
+                  <Sparkles className="w-3 h-3 text-white" />
+                </span>
+                <span className="text-sm font-semibold text-[#0f172a]">
+                  Generate beautiful emails with AI
+                </span>
+                <ArrowRight className="w-4 h-4 text-primary group-hover:translate-x-0.5 transition-transform" />
+              </div>
+            </motion.div>
+
+            {/* Rotating Headlines */}
+            <div className="relative h-[140px] sm:h-[160px] md:h-[200px] lg:h-[240px]">
+              {headlines.map((headline, index) => (
+                <motion.div
+                  key={index}
+                  className="absolute inset-0 flex flex-col items-center justify-center"
                   initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.1 }}
+                  animate={{ 
+                    opacity: headlineIndex === index ? 1 : 0,
+                    y: headlineIndex === index ? 0 : 20
+                  }}
+                  transition={{ duration: 0.5, ease: "easeOut" }}
                 >
-                  Build emails like you're playing with{" "}
-                </motion.span>
-                <motion.span
-                  className="text-primary font-bold inline-block"
-                  initial={{ opacity: 0, scale: 0.8, rotate: -5 }}
-                  animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                  transition={{ duration: 0.5, delay: 0.4, type: "spring", stiffness: 200 }}
-                >
-                  LEGO
-                </motion.span>
-                <motion.span
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.6 }}
-                >
-                  {" "}
-                  <span className="text-primary font-bold">blocks</span>
-                </motion.span>
-              </h1>
+                  <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-semibold text-[#14171a] leading-tight">
+                    {headline.line1.split(headline.highlight).map((part, i, arr) => (
+                      <Fragment key={i}>
+                        {part}
+                        {i < arr.length - 1 && (
+                          <span className="text-primary">{headline.highlight}</span>
+                        )}
+                      </Fragment>
+                    ))}
+                  </h1>
+                  <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-semibold text-[#14171a] leading-tight mt-1 md:mt-2">
+                    {headline.line2.split(headline.highlight).map((part, i, arr) => (
+                      <Fragment key={i}>
+                        {part}
+                        {i < arr.length - 1 && (
+                          <span className="text-primary">{headline.highlight}</span>
+                        )}
+                      </Fragment>
+                    ))}
+                  </h1>
+                </motion.div>
+              ))}
             </div>
 
-            {/* Desktop: Heading with cursor dragging words into place */}
-            <div className="hidden md:block relative">
-              {/* Animated drag cursor - synced with word movements */}
-              <motion.div
-                className="absolute pointer-events-none z-50"
-                animate={{ 
-                  x: [
-                    // Build: flex=0, transform=200 → visual: 200 → 0
-                    200, 200, 0,
-                    // emails: flex=92 (100-8), transform=-150 → visual: -58 → 92
-                    -58, -58, 92,
-                    // like: flex=204 (220-16), transform=250 → visual: 454 → 204
-                    454, 454, 204,
-                    // you're: flex=286 (310-24), transform=-120 → visual: 166 → 286
-                    166, 166, 286,
-                    // playing: flex=408 (440-32), transform=300 → visual: 708 → 408
-                    708, 708, 408,
-                    // with: flex=550 (590-40), transform=-100 → visual: 450 → 550
-                    450, 450, 550,
-                    // LEGO: flex=652 (700-48), transform=350 → visual: 1002 → 652
-                    1002, 1002, 652,
-                    // blocks: flex=764 (820-56), transform=100 → visual: 864 → 764
-                    864, 864, 764,
-                    // Exit
-                    840
-                  ],
-                  y: [
-                    -80, -80, 8,
-                    100, 100, 8,
-                    -60, -60, 8,
-                    120, 120, 8,
-                    80, 80, 8,
-                    -50, -50, 8,
-                    -100, -100, 8,
-                    150, 150, 8,
-                    -50
-                  ],
-                  opacity: [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-                }}
-                transition={{ 
-                  duration: 6,
-                  times: [
-                    0, 0.02, 0.10,        // Build: arrive, wait, drag
-                    0.12, 0.14, 0.22,     // emails
-                    0.24, 0.26, 0.34,     // like
-                    0.36, 0.38, 0.46,     // you're
-                    0.48, 0.50, 0.58,     // playing
-                    0.60, 0.62, 0.70,     // with
-                    0.72, 0.74, 0.82,     // LEGO
-                    0.84, 0.86, 0.94,     // blocks
-                    1                      // exit
-                  ],
-                  ease: "easeInOut"
-                }}
-              >
-                <MousePointerClick className="h-8 w-8 text-primary drop-shadow-xl" />
-              </motion.div>
-
-              <h1 className="text-3xl md:text-4xl font-semibold text-[#14171a] flex flex-nowrap gap-x-2 whitespace-nowrap">
-              {/* Build - cursor drags from (200,-80) to position 0 */}
-              <motion.span
-                initial={{ x: 200, y: -80, opacity: 0.3, scale: 0.85 }}
-                animate={{ x: 0, y: 0, opacity: 1, scale: 1 }}
-                transition={{ duration: 0.48, delay: 0.12, ease: "easeOut" }}
-              >
-                Build
-              </motion.span>
-
-              {/* emails - cursor drags from (-150,100) to position ~100 */}
-              <motion.span
-                initial={{ x: -150, y: 100, opacity: 0.3, scale: 0.85 }}
-                animate={{ x: 0, y: 0, opacity: 1, scale: 1 }}
-                transition={{ duration: 0.48, delay: 0.84, ease: "easeOut" }}
-              >
-                emails
-              </motion.span>
-
-              {/* like - cursor drags from (250,-60) to position ~220 */}
-              <motion.span
-                initial={{ x: 250, y: -60, opacity: 0.3, scale: 0.85 }}
-                animate={{ x: 0, y: 0, opacity: 1, scale: 1 }}
-                transition={{ duration: 0.48, delay: 1.56, ease: "easeOut" }}
-              >
-                like
-              </motion.span>
-
-              {/* you're - cursor drags from (-120,120) to position ~310 */}
-              <motion.span
-                initial={{ x: -120, y: 120, opacity: 0.3, scale: 0.85 }}
-                animate={{ x: 0, y: 0, opacity: 1, scale: 1 }}
-                transition={{ duration: 0.48, delay: 2.28, ease: "easeOut" }}
-              >
-                you're
-              </motion.span>
-
-              {/* playing - cursor drags from (300,80) to position ~440 */}
-              <motion.span
-                initial={{ x: 300, y: 80, opacity: 0.3, scale: 0.85 }}
-                animate={{ x: 0, y: 0, opacity: 1, scale: 1 }}
-                transition={{ duration: 0.48, delay: 3.0, ease: "easeOut" }}
-              >
-                playing
-              </motion.span>
-
-              {/* with - cursor drags from (-100,-50) to position ~590 */}
-              <motion.span
-                initial={{ x: -100, y: -50, opacity: 0.3, scale: 0.85 }}
-                animate={{ x: 0, y: 0, opacity: 1, scale: 1 }}
-                transition={{ duration: 0.48, delay: 3.72, ease: "easeOut" }}
-              >
-                with
-              </motion.span>
-
-              {/* LEGO - cursor drags from (350,-100) to position ~700 */}
-              <motion.span
-                className="text-primary font-bold"
-                initial={{ x: 350, y: -100, opacity: 0.3, scale: 0.85, rotate: -12 }}
-                animate={{ x: 0, y: 0, opacity: 1, scale: 1, rotate: 0 }}
-                transition={{ duration: 0.48, delay: 4.44, ease: "easeOut" }}
-              >
-                LEGO
-              </motion.span>
-
-              {/* blocks - cursor drags from (100,150) to position ~820 */}
-              <motion.span
-                className="text-primary font-bold"
-                initial={{ x: 100, y: 150, opacity: 0.3, scale: 0.85, rotate: 12 }}
-                animate={{ x: 0, y: 0, opacity: 1, scale: 1, rotate: 0 }}
-                transition={{ duration: 0.48, delay: 5.16, ease: "easeOut" }}
-              >
-                blocks
-              </motion.span>
-            </h1>
+            {/* Headline indicators */}
+            <div className="flex justify-center gap-2 mt-6">
+              {headlines.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setHeadlineIndex(index)}
+                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                    headlineIndex === index 
+                      ? "bg-primary w-6" 
+                      : "bg-gray-300 hover:bg-gray-400"
+                  }`}
+                />
+              ))}
             </div>
             
-            {/* Mobile subtitle - shorter delay */}
+            {/* Subtitle */}
             <motion.p 
-              className="md:hidden text-[#657786] mt-4 text-sm sm:text-base"
+              className="text-[#657786] mt-6 text-base sm:text-lg md:text-xl max-w-xl mx-auto font-medium"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.8, duration: 0.5 }}
+              transition={{ delay: 0.3, duration: 0.5 }}
             >
-              Drag, drop, and export production-ready emails with a live playground.
+              The visual email builder with AI superpowers. Create, iterate, and ship faster.
             </motion.p>
-            {/* Desktop subtitle - longer delay to sync with drag animation */}
-            <motion.p 
-              className="hidden md:block text-[#657786] mt-4 text-base"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 5.5, duration: 0.5 }}
-            >
-              Drag, drop, and export production-ready emails with a live playground.
-            </motion.p>
-            {!submitted ? (
-              <form onSubmit={handleSubmit} className="mt-4 flex flex-col sm:flex-row gap-2.5 max-w-md">
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@email.com"
-                  required
-                  className="flex-1 rounded-lg border border-[#e1e8ed] bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                />
-                <button 
-                  type="submit" 
-                  disabled={isLoading}
-                  className="flex items-center justify-center gap-1.5 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isLoading ? (
-                    <>
-                      <svg className="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Joining...
-                    </>
-                  ) : (
-                    <>
-                      Join waitlist
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </>
-                  )}
-                </button>
-              </form>
-            ) : (
-              <div className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#e8f5fd] px-5 py-3 text-sm font-medium text-primary">
-                ✓ You're on the list — we'll share early access soon.
-              </div>
-            )}
-          </section>
+            {/* CTA Buttons */}
+            <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={handleLoginClick}
+                className="flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm sm:text-base font-semibold text-white hover:bg-primary/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              >
+                Start for free
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={handleTryItClick}
+                aria-label="Scroll to the in-page editor"
+                className="flex items-center justify-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm sm:text-base font-semibold text-[#14171a] border border-gray-200 hover:bg-gray-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              >
+                Try the editor
+                <ChevronDown className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+          </motion.section>
 
-          <section className="pt-8 pb-12 px-4 md:px-8 lg:px-12 builder-section-bg relative landscape-bg">
-            {/* Subtle overlay to ensure readability */}
-            <div className="absolute inset-0 bg-white/20 pointer-events-none z-0"></div>
+          {/* Template Gallery */}
+          <motion.section
+            className="py-12 px-4 md:px-10 lg:px-14 bg-white rounded-2xl border border-gray-200/70 shadow-sm snap-start min-h-[100svh] flex items-center"
+            initial={{ opacity: 0, y: 18 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.35 }}
+            transition={{ duration: 0.55, ease: "easeOut" }}
+          >
+            <div className="max-w-5xl mx-auto w-full">
+              <div className="text-center mb-6 md:mb-8">
+                <h2 className="mt-2 text-3xl sm:text-4xl md:text-5xl font-semibold text-gray-900 leading-tight tracking-tight">
+                  <span className="block">Design High-Converting</span>
+                  <span className="block">Emails in Seconds</span>
+                </h2>
+                <p className="mt-3 text-sm sm:text-base text-gray-600 max-w-2xl mx-auto">
+                  Start from proven layouts, remix components, and ship polished emails without fiddly HTML.
+                </p>
+                <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                  {templateBadges.map((badge) => (
+                    <span
+                      key={badge}
+                      className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-700"
+                    >
+                      {badge}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <motion.div
+                className="relative overflow-hidden rounded-2xl bg-gray-50/60 border border-gray-200/70"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, ease: "easeOut" }}
+              >
+                {!isTemplateGalleryReady ? (
+                  <div className="absolute inset-0 z-10 rounded-2xl bg-white/65 backdrop-blur-[1px]">
+                    <div className="absolute inset-0 gallery-shimmer" />
+                  </div>
+                ) : null}
+
+                <div className="group relative">
+                  <div className="gallery-fade-edge">
+                    <div className="gallery-marquee">
+                      {[...templatePreviews, ...templatePreviews].map((tpl, idx) => (
+                        <div
+                          key={`${tpl.id}-${idx}`}
+                          className="relative w-[180px] sm:w-[220px] md:w-[240px] overflow-hidden rounded-xl border border-gray-200/80 bg-white shadow-sm"
+                        >
+                          <div className="relative aspect-[3/4] bg-gray-50">
+                            <NextImage
+                              src={tpl.src}
+                              alt={tpl.title}
+                              fill
+                              sizes="240px"
+                              className="object-cover object-top"
+                              priority={idx < 2}
+                              onLoadingComplete={() => {
+                                loadedTemplateSrcsRef.current.add(tpl.src);
+                                if (loadedTemplateSrcsRef.current.size >= templatePreviews.length) {
+                                  setIsTemplateGalleryReady(true);
+                                }
+                              }}
+                            />
+                          </div>
+
+                          <div className="p-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] font-medium text-gray-700">
+                                {tpl.badge}
+                              </span>
+                            </div>
+                            <p className="mt-2 text-sm font-semibold text-gray-900 leading-snug">
+                              {tpl.title}
+                            </p>
+                            <p className="mt-1 text-xs text-gray-600 leading-snug">
+                              {tpl.description}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <style jsx>{`
+                  .gallery-marquee {
+                    display: flex;
+                    gap: 12px;
+                    width: max-content;
+                    will-change: transform;
+                    animation: galleryMarquee 28s linear infinite;
+                  }
+                  .group:hover .gallery-marquee {
+                    animation-play-state: paused;
+                  }
+                  @keyframes galleryMarquee {
+                    0% { transform: translateX(0); }
+                    100% { transform: translateX(-50%); }
+                  }
+                  .gallery-fade-edge {
+                    position: relative;
+                    overflow: hidden;
+                  }
+                  .gallery-fade-edge:before,
+                  .gallery-fade-edge:after {
+                    content: "";
+                    position: absolute;
+                    top: 0;
+                    width: 56px;
+                    height: 100%;
+                    z-index: 2;
+                    pointer-events: none;
+                  }
+                  .gallery-fade-edge:before {
+                    left: 0;
+                    background: linear-gradient(to right, rgba(255,255,255,1), rgba(255,255,255,0));
+                  }
+                  .gallery-fade-edge:after {
+                    right: 0;
+                    background: linear-gradient(to left, rgba(255,255,255,1), rgba(255,255,255,0));
+                  }
+                  .gallery-shimmer {
+                    background: linear-gradient(90deg, rgba(220,220,220,0) 0%, rgba(220,220,220,0.55) 50%, rgba(220,220,220,0) 100%);
+                    transform: translateX(-100%);
+                    animation: galleryShimmer 1.2s ease-in-out infinite;
+                  }
+                  @keyframes galleryShimmer {
+                    0% { transform: translateX(-100%); }
+                    100% { transform: translateX(100%); }
+                  }
+                  @media (prefers-reduced-motion: reduce) {
+                    .gallery-marquee {
+                      animation: none;
+                      transform: translateX(0);
+                    }
+                    .gallery-shimmer {
+                      animation: none;
+                    }
+                  }
+                `}</style>
+              </motion.div>
+            </div>
+          </motion.section>
+
+          <motion.section
+            id="try-editor"
+            className="pt-8 pb-12 px-4 md:px-8 lg:px-12 bg-gray-100 rounded-2xl relative snap-start min-h-[100svh]"
+            initial={{ opacity: 0, y: 18 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 0.55, ease: "easeOut" }}
+          >
             {/* Fun "Play with" Header */}
             <div className="mb-4 flex items-center justify-center gap-2 relative z-10">
-              <div className="flex items-center gap-2 px-4 py-2 bg-white/90 backdrop-blur-md rounded-full border border-white/30 shadow-lg animate-pulse-glow hover:scale-105 transition-transform duration-300">
+              <div className="flex items-center gap-2 px-4 py-2 bg-white/90 backdrop-blur-md rounded-full border border-white/30 animate-pulse-glow hover:scale-105 transition-transform duration-300">
                 <span className="text-lg animate-bounce-delayed-1">🎨</span>
                 <span className="text-sm font-semibold text-[#1a237e]">
                   Try it out! Drag & drop below
@@ -2686,7 +2861,7 @@ export default function Home() {
               <ChevronDown className="h-4 w-4 text-white/80 animate-bounce drop-shadow-lg" />
             </div>
             
-            <div className="h-[calc(100vh-200px)] min-h-[500px] md:min-h-[600px] bg-[#f5f5f7]/80 backdrop-blur-sm border border-[#e5e5e7] rounded-xl overflow-hidden shadow-sm relative z-10">
+            <div className="h-[calc(100svh-240px)] min-h-[500px] md:min-h-[600px] bg-[#f5f5f7]/80 backdrop-blur-sm border border-[#e5e5e7] rounded-xl overflow-hidden shadow-sm relative z-10">
               {/* Mobile Tab Bar */}
               <div className="md:hidden flex border-b border-[#e5e5e7] bg-white">
                 <button
@@ -2920,7 +3095,7 @@ export default function Home() {
                 </div>
               </div>
             </div>
-          </section>
+          </motion.section>
         </main>
 
         {/* Footer */}

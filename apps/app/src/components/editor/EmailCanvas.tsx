@@ -11,6 +11,7 @@ import { CSS } from "@dnd-kit/utilities";
 import type { EmailComponent, TailwindConfig, EmailGlobalStyles } from "@/types";
 import { renderEmailTemplate } from "@/lib/email-renderer";
 import { getLogoUrl } from "@/lib/utils";
+import { SOCIAL_ICON_ASSETS, getGoogleFaviconUrl } from "@/lib/social-icons";
 import {
   cn,
   ScrollArea,
@@ -24,10 +25,13 @@ import {
   Button,
   Label,
 } from "@react-email-builder/ui";
-import { Mail, GripVertical, Trash2, Layers, Eye, Plus, Send, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Mail, GripVertical, Trash2, Layers, Eye, Plus, Send, Loader2, CheckCircle2, AlertCircle, LogIn } from "lucide-react";
 import { LayersPanel } from "./LayersPanel";
 import type { DeviceType } from "../EmailBuilder";
-import { useEffect, useState, useRef, Fragment } from "react";
+import { useEffect, useState, useRef, Fragment, useMemo, useCallback } from "react";
+import { useConvexAuth, useQuery } from "convex/react";
+import { LoginDialog } from "../auth/LoginDialog";
+import { api } from "../../../convex/_generated/api";
 
 interface EmailCanvasProps {
   components: EmailComponent[];
@@ -58,7 +62,6 @@ function DroppableBetween({ id }: { id: string }) {
 // Viewport widths for different devices
 const deviceWidths = {
   desktop: "100%",
-  tablet: "768px",
   mobile: "375px",
 };
 
@@ -68,10 +71,10 @@ const editModeStyles: Record<string, React.CSSProperties> = {
     maxWidth: "600px", 
     margin: "0 auto", 
     padding: "20px",
-    backgroundColor: "#eeeeee",
+    backgroundColor: "transparent",
   },
   Section: { 
-    backgroundColor: "#ffffff",
+    backgroundColor: "transparent",
     marginBottom: "0",
   },
   Row: { 
@@ -86,18 +89,18 @@ const editModeStyles: Record<string, React.CSSProperties> = {
     fontSize: "20px", 
     fontWeight: "bold",
     margin: "0 0 15px 0",
-    color: "#333333",
+    color: "inherit",
   },
   Text: { 
     fontSize: "14px", 
     lineHeight: "1.6",
     margin: "0 0 14px 0",
-    color: "#333333",
+    color: "inherit",
   },
   Button: { 
     display: "inline-block",
     padding: "12px 24px",
-    backgroundColor: "#000000",
+    backgroundColor: "#2563eb",
     color: "#ffffff",
     textDecoration: "none",
     borderRadius: "4px",
@@ -114,12 +117,12 @@ const editModeStyles: Record<string, React.CSSProperties> = {
   },
   Hr: { 
     border: "none",
-    borderTop: "1px solid #e1e8ed",
+    borderTop: "1px solid rgba(148, 163, 184, 0.35)",
     margin: "24px 0",
   },
   Divider: { 
     border: "none",
-    borderTop: "1px solid #e1e8ed",
+    borderTop: "1px solid rgba(148, 163, 184, 0.35)",
     margin: "24px 0",
   },
   Preview: {
@@ -202,7 +205,7 @@ function DroppableContainer({
         <div 
           className={cn(
             "absolute inset-0 flex flex-col items-center justify-center text-xs transition-all rounded-lg m-1",
-            isOver ? "text-blue-600 bg-blue-100 border-2 border-blue-400" : "text-gray-400 border-2 border-dashed border-gray-200",
+            isOver ? "text-blue-600 bg-blue-100 border-2 border-blue-400" : "text-muted-foreground border-2 border-dashed border-border",
             isDragging && "text-blue-500 bg-blue-50 border-blue-300"
           )}
         >
@@ -210,7 +213,7 @@ function DroppableContainer({
           <span className="font-medium text-sm">
             {isOver ? "Release to drop here" : `Drop components into ${componentType || "container"}`}
           </span>
-          <span className="text-[10px] mt-1 text-gray-400">
+          <span className="text-[10px] mt-1 text-muted-foreground">
             Drag from the left panel
           </span>
         </div>
@@ -220,7 +223,7 @@ function DroppableContainer({
         <div 
           className={cn(
             "mt-2 py-3 flex items-center justify-center text-xs transition-all rounded-lg border-2 border-dashed",
-            isOver ? "text-blue-600 bg-blue-100 border-blue-400" : "text-gray-400 border-gray-200 bg-gray-50"
+            isOver ? "text-blue-600 bg-blue-100 border-blue-400" : "text-muted-foreground border-border bg-muted"
           )}
         >
           <Plus className={cn("h-4 w-4 mr-1.5", isOver && "text-blue-600")} />
@@ -244,6 +247,9 @@ function parseTailwindClasses(className: string, baseStyle: React.CSSProperties 
   
   // Text alignment
   if (className.includes("text-center")) style.textAlign = "center";
+  if (className.includes("text-left")) style.textAlign = "left";
+  if (className.includes("text-right")) style.textAlign = "right";
+  if (className.includes("text-justify")) style.textAlign = "justify";
   
   // Text colors
   if (className.includes("text-[#333]")) style.color = "#333333";
@@ -298,6 +304,87 @@ function parseTailwindClasses(className: string, baseStyle: React.CSSProperties 
 
 // Text types that support inline editing
 const TEXT_EDITABLE_TYPES = ["Text", "Heading", "Button", "Link"];
+
+// Default Gallery content to mirror react.email template
+const DEFAULT_GALLERY_CONTENT = {
+  sectionTitle: "Our products",
+  headline: "Elegant Style",
+  description:
+    "We spent two years in development to bring you the next generation of our award-winning home brew grinder. From the finest pour-overs to the coarsest cold brews, your coffee will never be the same again.",
+  titleColor: "#4f46e5",
+  headlineColor: "#111827",
+  descriptionColor: "#6b7280",
+  images: [
+    {
+      src: "https://react.email/static/stagg-eletric-kettle.jpg",
+      alt: "Stagg Electric Kettle",
+      href: "#",
+    },
+    {
+      src: "https://react.email/static/ode-grinder.jpg",
+      alt: "Ode Grinder",
+      href: "#",
+    },
+    {
+      src: "https://react.email/static/atmos-vacuum-canister.jpg",
+      alt: "Atmos Vacuum Canister",
+      href: "#",
+    },
+    {
+      src: "https://react.email/static/clyde-electric-kettle.jpg",
+      alt: "Clyde Electric Kettle",
+      href: "#",
+    },
+  ],
+  columns: 2,
+  imageHeight: 288,
+  borderRadius: "12px",
+  gap: "16px",
+  style: {
+    padding: "16px 0",
+  },
+};
+
+// Default Marketing content to mirror react.email template
+const DEFAULT_MARKETING_CONTENT = {
+  headerBgColor: "#292524",
+  headerTitle: "Coffee Storage",
+  headerDescription: "Keep your coffee fresher for longer with innovative technology.",
+  headerLinkText: "Shop now →",
+  headerLinkUrl: "#",
+  headerImage: "https://react.email/static/coffee-bean-storage.jpg",
+  headerImageAlt: "Coffee Bean Storage",
+  products: [
+    {
+      imageUrl: "https://react.email/static/atmos-vacuum-canister.jpg",
+      altText: "Auto-Sealing Vacuum Canister",
+      title: "Auto-Sealing Vacuum Canister",
+      description: "A container that automatically creates an airtight seal with a button press.",
+      linkUrl: "#",
+    },
+    {
+      imageUrl: "https://react.email/static/vacuum-canister-clear-glass-bundle.jpg",
+      altText: "3-Pack Vacuum Containers",
+      title: "3-Pack Vacuum Containers",
+      description: "Keep your coffee fresher for longer with this set of high-performance vacuum containers.",
+      linkUrl: "#",
+    },
+  ],
+  containerBgColor: "#ffffff",
+  borderRadius: "8px",
+};
+
+// Default Testimonial content to mirror react.email template
+const DEFAULT_TESTIMONIAL_CONTENT = {
+  imageSrc: "https://react.email/static/steve-jobs.jpg",
+  imageAlt: "Steve Jobs",
+  imageWidth: 320,
+  imageHeight: 320,
+  quote:
+    "Design is not just what it looks like and feels like. Design is how it works. The people who are crazy enough to think they can change the world are the ones who do. Innovation distinguishes between a leader and a follower.",
+  authorName: "Steve Jobs",
+  authorTitle: "Co-founder of Apple",
+};
 
 // Draggable email component for Edit mode
 function DraggableEmailItem({
@@ -556,7 +643,9 @@ function DraggableEmailItem({
         if (!platform) return "#888";
         if (iconStyle === "colored") return platform.color;
         if (iconStyle === "dark") return "#1a1a1a";
-        return "#f0f0f0";
+        if (iconStyle === "light") return "#f0f0f0";
+        // official mode: don't paint a brand background (the icon itself is branded)
+        return "transparent";
       };
       
       return (
@@ -564,6 +653,15 @@ function DraggableEmailItem({
           {platforms.map((p: { platform: string; url: string }, i: number) => {
             const platformData = SOCIAL_PLATFORMS_MAP[p.platform];
             if (!platformData) return null;
+
+            const glyphBlack = platformData.icon.replace("fill='white'", "fill='black'");
+            const glyphSrc = iconStyle === "light" ? glyphBlack : platformData.icon;
+            // Use Google Favicon API for official icons - most reliable way to get brand favicons
+            const officialDomain = SOCIAL_ICON_ASSETS[p.platform as keyof typeof SOCIAL_ICON_ASSETS]?.officialDomain;
+            const officialSrc = officialDomain ? getGoogleFaviconUrl(officialDomain, iconSize) : null;
+            const src = iconStyle === "official" ? (officialSrc || glyphSrc) : glyphSrc;
+            const innerSize = iconStyle === "official" ? iconSize : iconSize * 0.55;
+
             return (
               <a
                 key={i}
@@ -578,15 +676,24 @@ function DraggableEmailItem({
                   backgroundColor: getIconBg(p.platform),
                   borderRadius: getBorderRadius(),
                   textDecoration: "none",
+                  border: iconStyle === "official" ? "1px solid #e5e7eb" : undefined,
                 }}
                 title={platformData.name}
               >
                 <img
-                  src={platformData.icon}
+                  src={src}
                   alt={platformData.name}
-                  width={iconSize * 0.55}
-                  height={iconSize * 0.55}
-                  style={{ display: "block" }}
+                  width={innerSize}
+                  height={innerSize}
+                  onError={(e) => {
+                    // Fallback to embedded glyph if the official URL fails.
+                    (e.currentTarget as HTMLImageElement).src = glyphSrc;
+                  }}
+                  style={{
+                    display: "block",
+                    borderRadius: iconStyle === "official" ? getBorderRadius() : undefined,
+                    objectFit: iconStyle === "official" ? ("contain" as any) : undefined,
+                  }}
                 />
               </a>
             );
@@ -594,11 +701,401 @@ function DraggableEmailItem({
         </div>
       );
     }
+    if (component.type === "Marketing") {
+      const props = component.props || {};
+      const marketing = {
+        ...DEFAULT_MARKETING_CONTENT,
+        ...props,
+        products:
+          props.products && props.products.length > 0
+            ? props.products.map((p: any, idx: number) =>
+                p?.imageUrl ? p : DEFAULT_MARKETING_CONTENT.products[idx % DEFAULT_MARKETING_CONTENT.products.length]
+              )
+            : DEFAULT_MARKETING_CONTENT.products,
+      };
+
+      return (
+        <div
+          style={{
+            ...componentStyle,
+            backgroundColor: marketing.containerBgColor,
+            borderRadius: marketing.borderRadius,
+            overflow: "hidden",
+          }}
+        >
+          {/* Header */}
+          <div
+            style={{
+              display: "flex",
+              padding: "24px",
+              backgroundColor: marketing.headerBgColor,
+            }}
+          >
+            <div style={{ flex: 1, paddingLeft: "12px" }}>
+              <h1
+                style={{
+                  margin: 0,
+                  color: "#fff",
+                  fontSize: "28px",
+                  fontWeight: 700,
+                  marginBottom: "10px",
+                }}
+              >
+                {marketing.headerTitle}
+              </h1>
+              <p
+                style={{
+                  margin: 0,
+                  color: "rgba(255,255,255,0.6)",
+                  fontSize: "14px",
+                  lineHeight: "20px",
+                }}
+              >
+                {marketing.headerDescription}
+              </p>
+              <a
+                href={marketing.headerLinkUrl}
+                onClick={(e) => e.preventDefault()}
+                style={{
+                  color: "rgba(255,255,255,0.8)",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  marginTop: "12px",
+                  display: "block",
+                  textDecoration: "none",
+                  lineHeight: "20px",
+                }}
+              >
+                {marketing.headerLinkText}
+              </a>
+            </div>
+            <div style={{ width: "42%", height: "250px" }}>
+              <img
+                src={marketing.headerImage}
+                alt={marketing.headerImageAlt}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  objectPosition: "center",
+                  borderRadius: "4px",
+                  marginRight: "-6px",
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Products */}
+          <div
+            style={{
+              display: "flex",
+              gap: "24px",
+              padding: "12px",
+              marginBottom: "24px",
+              flexWrap: "wrap",
+            }}
+          >
+            {marketing.products.map((product: any) => (
+              <div
+                key={product.title}
+                style={{
+                  flex: 1,
+                  minWidth: "180px",
+                  maxWidth: "180px",
+                  margin: "0 auto",
+                }}
+              >
+                <img
+                  src={product.imageUrl}
+                  alt={product.altText}
+                  style={{
+                    width: "100%",
+                    borderRadius: "4px",
+                    marginBottom: "18px",
+                  }}
+                />
+                <h2
+                  style={{
+                    margin: 0,
+                    marginBottom: "8px",
+                    fontSize: "14px",
+                    lineHeight: "20px",
+                    fontWeight: 700,
+                  }}
+                >
+                  {product.title}
+                </h2>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: "12px",
+                    lineHeight: "20px",
+                    color: "#6b7280",
+                    paddingRight: "12px",
+                  }}
+                >
+                  {product.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    if (component.type === "Testimonial") {
+      const props = component.props || {};
+      const testimonial = {
+        ...DEFAULT_TESTIMONIAL_CONTENT,
+        ...props,
+      };
+
+      return (
+        <div
+          style={{
+            ...componentStyle,
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "24px",
+            padding: (componentStyle.padding as any) ?? "16px 0",
+            margin: (componentStyle.margin as any) ?? "12px",
+          }}
+        >
+          <div
+            style={{
+              marginRight: "24px",
+              marginBottom: "24px",
+              width: "256px",
+              maxWidth: "100%",
+              borderRadius: "24px",
+              overflow: "hidden",
+            }}
+          >
+            <img
+              src={testimonial.imageSrc}
+              alt={testimonial.imageAlt}
+              style={{
+                width: "100%",
+                height: `${testimonial.imageHeight || 320}px`,
+                objectFit: "cover",
+                objectPosition: "center",
+              }}
+            />
+          </div>
+          <div style={{ flex: 1, minWidth: "260px", paddingRight: "24px" }}>
+            <p
+              style={{
+                margin: 0,
+                marginBottom: "24px",
+                fontSize: "16px",
+                lineHeight: 1.625,
+                fontWeight: 300,
+                color: testimonial.quoteColor || "#374151",
+                textAlign: "left",
+              }}
+            >
+              {testimonial.quote}
+            </p>
+            <p
+              style={{
+                margin: 0,
+                marginBottom: "4px",
+                fontSize: "16px",
+                fontWeight: 600,
+                color: testimonial.authorNameColor || "#1f2937",
+                textAlign: "left",
+              }}
+            >
+              {testimonial.authorName}
+            </p>
+            <p
+              style={{
+                margin: 0,
+                fontSize: "14px",
+                color: testimonial.authorTitleColor || "#4b5563",
+                textAlign: "left",
+              }}
+            >
+              {testimonial.authorTitle}
+            </p>
+          </div>
+        </div>
+      );
+    }
+    if (component.type === "Gallery") {
+      const props = component.props || {};
+      const gallery = {
+        ...DEFAULT_GALLERY_CONTENT,
+        ...props,
+        images:
+          props.images && props.images.length > 0
+            ? props.images
+            : DEFAULT_GALLERY_CONTENT.images,
+        style: {
+          ...DEFAULT_GALLERY_CONTENT.style,
+          ...(props.style || {}),
+        },
+      };
+
+      const columns = Math.min(
+        4,
+        Math.max(1, Number(gallery.columns) || DEFAULT_GALLERY_CONTENT.columns)
+      );
+      const gap = gallery.gap || DEFAULT_GALLERY_CONTENT.gap;
+      const padding = gallery.style?.padding || DEFAULT_GALLERY_CONTENT.style.padding;
+      const borderRadius = gallery.borderRadius || DEFAULT_GALLERY_CONTENT.borderRadius;
+      const imageHeight =
+        typeof gallery.imageHeight === "number"
+          ? gallery.imageHeight
+          : parseInt(String(gallery.imageHeight || DEFAULT_GALLERY_CONTENT.imageHeight), 10) ||
+            DEFAULT_GALLERY_CONTENT.imageHeight;
+      const columnWidth = `${Math.floor(100 / columns)}%`;
+      const numericGap = parseInt(String(gap), 10);
+      const halfGap = `${(Number.isFinite(numericGap) ? numericGap : 16) / 2}px`;
+      const resolvedImages = (gallery.images || [])
+        .map((img: { src?: string; alt?: string; href?: string }, idx: number) => {
+          if (img?.src && img.src.trim() !== "") return img;
+          // Fallback to default images to avoid empty src warnings
+          return DEFAULT_GALLERY_CONTENT.images[idx % DEFAULT_GALLERY_CONTENT.images.length];
+        })
+        .filter((img: { src?: string } | undefined) => img && img.src);
+
+      const rows: typeof resolvedImages[] = [];
+      for (let i = 0; i < resolvedImages.length; i += columns) {
+        rows.push(resolvedImages.slice(i, i + columns));
+      }
+
+      return (
+        <div
+          style={{
+            ...componentStyle,
+            padding,
+          }}
+        >
+          <div style={{ marginTop: "42px" }}>
+            <p
+              style={{
+                margin: 0,
+                fontWeight: 600,
+                fontSize: "16px",
+                lineHeight: "24px",
+                color: gallery.titleColor,
+              }}
+            >
+              {gallery.sectionTitle}
+            </p>
+            <p
+              style={{
+                margin: "8px 0 0 0",
+                fontWeight: 600,
+                fontSize: "24px",
+                lineHeight: "32px",
+                color: gallery.headlineColor,
+              }}
+            >
+              {gallery.headline}
+            </p>
+            <p
+              style={{
+                marginTop: "8px",
+                fontSize: "16px",
+                lineHeight: "24px",
+                color: gallery.descriptionColor,
+              }}
+            >
+              {gallery.description}
+            </p>
+          </div>
+
+          <div
+            style={{ marginTop: "16px" }}
+          >
+            {rows.map((row, rowIdx) => (
+              <div key={rowIdx} style={{ display: "flex", marginTop: rowIdx === 0 ? "0" : "16px" }}>
+                {row.map((img: { src: string; alt: string; href?: string }, colIdx: number) => (
+                  <div
+                    key={colIdx}
+                    style={{
+                      width: columnWidth,
+                      paddingLeft: colIdx === 0 ? "0" : halfGap,
+                      paddingRight: colIdx === row.length - 1 ? "0" : halfGap,
+                    }}
+                  >
+                    <a
+                      href={img.href || "#"}
+                      onClick={(e) => e.preventDefault()}
+                      style={{ display: "block" }}
+                    >
+                      <img
+                        src={img.src}
+                        alt={img.alt || ""}
+                        style={{
+                          width: "100%",
+                          height: `${imageHeight}px`,
+                          objectFit: "cover",
+                          borderRadius,
+                          display: "block",
+                        }}
+                      />
+                    </a>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
     if (component.type === "Button") {
       const buttonText = component.props?.children || "Button";
+      const wrapperAlign = (componentStyle.textAlign as any) || "left";
+      const innerStyle: React.CSSProperties = { ...componentStyle };
+      // Alignment must be applied on a wrapper (email-style), not on the button itself.
+      delete (innerStyle as any).textAlign;
+      if (!innerStyle.display) innerStyle.display = "inline-block";
       if (isEditing) {
         return (
-          <div style={{ ...componentStyle, display: "inline-block" }}>
+          <div style={{ width: "100%", textAlign: wrapperAlign }}>
+            <div style={innerStyle}>
+              <input
+                ref={inputRef as React.RefObject<HTMLInputElement>}
+                type="text"
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                onBlur={saveText}
+                onKeyDown={handleKeyDown}
+                className="bg-transparent border-none outline-none text-center"
+                style={{
+                  fontFamily: "inherit",
+                  fontSize: "inherit",
+                  fontWeight: "inherit",
+                  color: "inherit",
+                  width: `${Math.max(editText.length, 5)}ch`,
+                }}
+              />
+            </div>
+          </div>
+        );
+      }
+      return (
+        <div style={{ width: "100%", textAlign: wrapperAlign }}>
+          <a
+            href="#"
+            onClick={(e) => e.preventDefault()}
+            style={{ ...innerStyle, cursor: isSelected ? "text" : "pointer" }}
+          >
+            {buttonText}
+          </a>
+        </div>
+      );
+    }
+    if (component.type === "Link") {
+      const linkText = component.props?.children || "Link";
+      const wrapperAlign = (componentStyle.textAlign as any) || "left";
+      const innerStyle: React.CSSProperties = { ...componentStyle };
+      delete (innerStyle as any).textAlign;
+      if (isEditing) {
+        return (
+          <div style={{ width: "100%", textAlign: wrapperAlign }}>
             <input
               ref={inputRef as React.RefObject<HTMLInputElement>}
               type="text"
@@ -606,12 +1103,10 @@ function DraggableEmailItem({
               onChange={(e) => setEditText(e.target.value)}
               onBlur={saveText}
               onKeyDown={handleKeyDown}
-              className="bg-transparent border-none outline-none text-center"
+              className="bg-transparent border-none outline-none"
               style={{
-                fontFamily: "inherit",
-                fontSize: "inherit",
-                fontWeight: "inherit",
-                color: "inherit",
+                ...innerStyle,
+                cursor: "text",
                 width: `${Math.max(editText.length, 5)}ch`,
               }}
             />
@@ -619,43 +1114,15 @@ function DraggableEmailItem({
         );
       }
       return (
-        <a 
-          href="#" 
-          onClick={(e) => e.preventDefault()} 
-          style={{ ...componentStyle, cursor: isSelected ? "text" : "pointer" }}
-        >
-          {buttonText}
-        </a>
-      );
-    }
-    if (component.type === "Link") {
-      const linkText = component.props?.children || "Link";
-      if (isEditing) {
-        return (
-          <input
-            ref={inputRef as React.RefObject<HTMLInputElement>}
-            type="text"
-            value={editText}
-            onChange={(e) => setEditText(e.target.value)}
-            onBlur={saveText}
-            onKeyDown={handleKeyDown}
-            className="bg-transparent border-none outline-none"
-            style={{
-              ...componentStyle,
-              cursor: "text",
-              width: `${Math.max(editText.length, 5)}ch`,
-            }}
-          />
-        );
-      }
-      return (
-        <a 
-          href="#" 
-          onClick={(e) => e.preventDefault()} 
-          style={{ ...componentStyle, cursor: isSelected ? "text" : "pointer" }}
-        >
-          {linkText}
-        </a>
+        <div style={{ width: "100%", textAlign: wrapperAlign }}>
+          <a
+            href="#"
+            onClick={(e) => e.preventDefault()}
+            style={{ ...innerStyle, cursor: isSelected ? "text" : "pointer" }}
+          >
+            {linkText}
+          </a>
+        </div>
       );
     }
     if (component.type === "Preview") {
@@ -740,7 +1207,22 @@ function DraggableEmailItem({
       );
     }
     if (component.type === "NumberedList") {
-      const items = component.props?.items || [];
+      // Default items to ensure content is always present
+      const DEFAULT_NUMBERED_LIST_ITEMS = [
+        { title: "Lightning Fast Performance", description: "Experience blazing fast speeds with our optimized infrastructure. Your workflows will be 10x more efficient." },
+        { title: "Enterprise-Grade Security", description: "Bank-level encryption and SOC 2 compliance keep your data safe. We take security seriously." },
+        { title: "24/7 Priority Support", description: "Our dedicated support team is available around the clock to help you succeed. Average response time under 2 hours." },
+      ];
+      
+      // Use provided items or fallback to defaults, ensure each item has title/description
+      const rawItems = component.props?.items || [];
+      const items = (rawItems.length > 0 ? rawItems : DEFAULT_NUMBERED_LIST_ITEMS).map(
+        (item: { title?: string; description?: string }, idx: number) => ({
+          title: item?.title && item.title.trim() !== "" ? item.title : DEFAULT_NUMBERED_LIST_ITEMS[idx % DEFAULT_NUMBERED_LIST_ITEMS.length]?.title || "Feature",
+          description: item?.description && item.description.trim() !== "" ? item.description : DEFAULT_NUMBERED_LIST_ITEMS[idx % DEFAULT_NUMBERED_LIST_ITEMS.length]?.description || "Description of this feature.",
+        })
+      );
+      
       const numberBgColor = component.props?.numberBgColor || "#4f46e5";
       
       const handleItemUpdate = (index: number, field: 'title' | 'description', value: string) => {
@@ -836,10 +1318,9 @@ function DraggableEmailItem({
       
       // Column should take full width of its container and apply padding
       const columnContainerStyle: React.CSSProperties = isColumn ? {
+        ...componentStyle,
         width: "100%",
         height: "100%",
-        paddingLeft: componentStyle.paddingLeft,
-        paddingRight: componentStyle.paddingRight,
         boxSizing: "border-box" as const,
       } : componentStyle;
       
@@ -1037,11 +1518,16 @@ export function EmailCanvas({
   const { setNodeRef, isOver } = useDroppable({
     id: "canvas",
   });
+  
+  // Auth state for send email feature
+  const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
 
   const [html, setHtml] = useState<string>("");
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const containerWidth = deviceWidths[deviceType];
   const [activeTab, setActiveTab] = useState<"preview" | "edit" | "layers">("edit");
+  const isPreview = activeTab === "preview";
+  const deviceMaxWidth = deviceType === "desktop" ? (globalStyles?.maxWidth || "600px") : deviceWidths[deviceType];
   
   // Send email dialog state
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
@@ -1049,8 +1535,42 @@ export function EmailCanvas({
   const [emailSubject, setEmailSubject] = useState("Your Email from React Email Builder");
   const [sendStatus, setSendStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
   const [sendError, setSendError] = useState<string>("");
+  const currentUser = useQuery(api.users.current);
+  
+  // Login dialog state (for unauthenticated users)
+  const [loginDialogOpen, setLoginDialogOpen] = useState(false);
 
-  // Helper function to convert relative image URLs to absolute URLs
+  // Always send test emails to the signed-in user's email to prevent abuse
+  useEffect(() => {
+    if (isAuthenticated && currentUser?.email) {
+      setRecipientEmail(currentUser.email);
+      return;
+    }
+    if (!isAuthenticated) {
+      setRecipientEmail("");
+    }
+  }, [isAuthenticated, currentUser?.email]);
+
+  // Helper function to normalize and absolutize image URLs for preview/render
+  const normalizeImageSrc = (src: string) => {
+    if (!src) return src;
+    // Skip data/blob/cid
+    const lower = src.toLowerCase();
+    if (lower.startsWith("data:") || lower.startsWith("blob:") || lower.startsWith("cid:")) {
+      return src;
+    }
+    // Common case: "/logo" without extension -> prefer svg if exists
+    if (src === "/logo") {
+      return getLogoUrl("/logo.svg");
+    }
+    // Already absolute http(s)
+    if (lower.startsWith("http://") || lower.startsWith("https://")) {
+      return src;
+    }
+    // Fallback: convert relative to absolute using app origin
+    return getLogoUrl(src);
+  };
+
   const convertImageUrlsToAbsolute = (comps: EmailComponent[]): EmailComponent[] => {
     return comps.map(comp => {
       const updatedComp = { ...comp };
@@ -1059,7 +1579,7 @@ export function EmailCanvas({
       if (comp.type === "Image" && comp.props?.src) {
         updatedComp.props = {
           ...comp.props,
-          src: getLogoUrl(comp.props.src),
+          src: normalizeImageSrc(comp.props.src),
         };
       }
       
@@ -1125,29 +1645,72 @@ export function EmailCanvas({
     }
   };
 
+  // Memoize serialized values for stable comparison to prevent infinite loops
+  const configStr = useMemo(() => JSON.stringify(tailwindConfig), [tailwindConfig]);
+  const globalStylesStr = useMemo(() => JSON.stringify(globalStyles), [globalStyles]);
+  const componentsStr = useMemo(() => JSON.stringify(components), [components]);
+  
+  // Memoize component IDs array for SortableContext to prevent infinite loops
+  const componentIds = useMemo(() => components.map(c => c.id), [componentsStr]);
+  
+  // Stable callback functions to prevent infinite loops
+  const handleSelectComponent = useCallback((id: string) => {
+    onSelectComponent(id);
+  }, [onSelectComponent]);
+  
+  const handleDeleteComponent = useCallback((id: string) => {
+    onDeleteComponent(id);
+  }, [onDeleteComponent]);
+
   // Render email template for Preview mode
   useEffect(() => {
+    let cancelled = false;
+
     async function render() {
-      if (components.length === 0) {
-        setHtml("");
+      // Parse back from strings to get actual values
+      const currentComponents = JSON.parse(componentsStr) as EmailComponent[];
+      // Ensure image src are absolute so iframe preview can load them
+      const componentsWithAbsoluteUrls = convertImageUrlsToAbsolute(currentComponents);
+      const currentTailwindConfig = configStr ? (JSON.parse(configStr) as TailwindConfig) : undefined;
+      const currentGlobalStyles = globalStylesStr ? (JSON.parse(globalStylesStr) as EmailGlobalStyles) : undefined;
+      // For preview, shrink the container to the selected device width so mobile
+      // previews actually render at the expected viewport size.
+      const previewGlobalStyles =
+        deviceType === "desktop"
+          ? currentGlobalStyles
+          : {
+              ...(currentGlobalStyles || {}),
+              maxWidth: deviceWidths[deviceType],
+            };
+
+      if (componentsWithAbsoluteUrls.length === 0) {
+        if (!cancelled) setHtml("");
         return;
       }
       
       try {
-        const rendered = await renderEmailTemplate(components, {
+        const rendered = await renderEmailTemplate(componentsWithAbsoluteUrls, {
           useTailwind: true,
-          tailwindConfig,
-          globalStyles,
+          tailwindConfig: currentTailwindConfig,
+          globalStyles: previewGlobalStyles,
         });
-        setHtml(rendered);
+        if (!cancelled) {
+          setHtml(rendered);
+        }
       } catch (error) {
         console.error("Error rendering preview:", error);
-        setHtml("<p>Error rendering preview</p>");
+        if (!cancelled) {
+          setHtml("<p>Error rendering preview</p>");
+        }
       }
     }
     
     render();
-  }, [components, tailwindConfig, globalStyles]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [componentsStr, configStr, globalStylesStr, deviceType]);
 
   // Update iframe height to match content
   useEffect(() => {
@@ -1157,8 +1720,13 @@ export function EmailCanvas({
         try {
           const doc = iframe.contentDocument || iframe.contentWindow?.document;
           if (doc?.body) {
-            const height = doc.body.scrollHeight;
-            iframe.style.height = `${Math.max(height, 400)}px`;
+            const bodyHeight = doc.body.scrollHeight || 0;
+            const htmlHeight = doc.documentElement?.scrollHeight || 0;
+            const measuredHeights = [bodyHeight, htmlHeight].filter(
+              (value) => Number.isFinite(value) && value > 0
+            );
+            const height = measuredHeights.length > 0 ? Math.max(...measuredHeights) : 400;
+            iframe.style.height = `${height}px`;
           }
         } catch (e) {
           // Cross-origin restrictions may prevent this
@@ -1166,18 +1734,72 @@ export function EmailCanvas({
       };
       
       iframe.onload = updateHeight;
-      setTimeout(updateHeight, 100);
+      setTimeout(updateHeight, 120);
+
+      // Keep iframe height in sync if content changes after load (images/fonts)
+      const doc = iframe.contentDocument || iframe.contentWindow?.document;
+      let resizeObserver: ResizeObserver | null = null;
+      if (doc?.body && "ResizeObserver" in window) {
+        resizeObserver = new ResizeObserver(() => updateHeight());
+        resizeObserver.observe(doc.body);
+      }
+
+      return () => {
+        if (resizeObserver) {
+          resizeObserver.disconnect();
+        }
+      };
     }
   }, [html]);
 
+  // When switching to preview after edit-first, ensure iframe height recalculates
+  useEffect(() => {
+    if (activeTab !== "preview" || !iframeRef.current || !html) return;
+
+    const iframe = iframeRef.current;
+    const updateHeight = () => {
+      try {
+        const doc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (doc?.body) {
+          const bodyHeight = doc.body.scrollHeight || 0;
+          const htmlHeight = doc.documentElement?.scrollHeight || 0;
+          const measuredHeights = [bodyHeight, htmlHeight].filter(
+            (value) => Number.isFinite(value) && value > 0
+          );
+          const height = measuredHeights.length > 0 ? Math.max(...measuredHeights) : 400;
+          iframe.style.height = `${height}px`;
+        }
+      } catch (e) {
+        // ignore cross-origin issues
+      }
+    };
+
+    updateHeight();
+    iframe.onload = updateHeight;
+    const timer = setTimeout(updateHeight, 120);
+
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    let resizeObserver: ResizeObserver | null = null;
+    if (doc?.body && "ResizeObserver" in window) {
+      resizeObserver = new ResizeObserver(() => updateHeight());
+      resizeObserver.observe(doc.body);
+    }
+
+    return () => {
+      clearTimeout(timer);
+      if (resizeObserver) resizeObserver.disconnect();
+      iframe.onload = null;
+    };
+  }, [activeTab, html]);
+
   // Empty state component
   const EmptyState = () => (
-    <div className="flex flex-col items-center justify-center h-full text-gray-400 px-8 py-16">
-      <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-        <Mail className="h-7 w-7 text-gray-300" />
+    <div className="flex flex-col items-center justify-center text-muted-foreground px-8 py-16 gap-3">
+      <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-3">
+        <Mail className="h-7 w-7 text-muted-foreground/70" />
       </div>
-      <p className="text-sm font-medium text-gray-600 mb-1">Start building your email</p>
-      <p className="text-xs text-center max-w-xs text-gray-400">
+      <p className="text-sm font-medium text-foreground mb-1">Start building your email</p>
+      <p className="text-xs text-center max-w-xs text-muted-foreground">
         Select a template from the right panel or drag components here
       </p>
       {isOver && (
@@ -1189,9 +1811,9 @@ export function EmailCanvas({
   );
 
   return (
-    <div className="h-full flex flex-col bg-gray-50">
+    <div className="flex flex-col bg-muted/20 h-full">
       {/* Tab Header */}
-      <div className="border-b border-gray-200 bg-white px-4 flex-shrink-0">
+      <div className="border-b border-border bg-background px-4 flex-shrink-0">
         <div className="flex items-center gap-1">
           <button
             onClick={() => setActiveTab("edit")}
@@ -1199,7 +1821,7 @@ export function EmailCanvas({
               "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors",
               activeTab === "edit"
                 ? "border-primary text-primary"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                : "border-transparent text-muted-foreground hover:text-foreground"
             )}
           >
             <Layers className="h-4 w-4" />
@@ -1211,7 +1833,7 @@ export function EmailCanvas({
               "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors",
               activeTab === "preview"
                 ? "border-primary text-primary"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                : "border-transparent text-muted-foreground hover:text-foreground"
             )}
           >
             <Eye className="h-4 w-4" />
@@ -1223,7 +1845,7 @@ export function EmailCanvas({
               "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors",
               activeTab === "layers"
                 ? "border-primary text-primary"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                : "border-transparent text-muted-foreground hover:text-foreground"
             )}
           >
             <Layers className="h-4 w-4" />
@@ -1255,6 +1877,39 @@ export function EmailCanvas({
             </DialogDescription>
           </DialogHeader>
           
+          {/* Show sign-in prompt if not authenticated */}
+          {!isAuthenticated && !authLoading ? (
+            <div className="py-6">
+              <div className="flex flex-col items-center justify-center text-center space-y-4">
+                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                  <LogIn className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-lg">Sign in required</h3>
+                  <p className="text-sm text-muted-foreground max-w-[280px]">
+                    Please sign in to send test emails. This helps us prevent spam and abuse.
+                  </p>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <Button variant="outline" onClick={() => setSendDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={() => {
+                    setSendDialogOpen(false);
+                    setLoginDialogOpen(true);
+                  }}>
+                    <LogIn className="h-4 w-4 mr-2" />
+                    Sign In
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : authLoading ? (
+            <div className="py-8 flex items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="recipient-email">Recipient Email</Label>
@@ -1263,12 +1918,16 @@ export function EmailCanvas({
                 type="email"
                 placeholder="you@example.com"
                 value={recipientEmail}
-                onChange={(e) => {
-                  setRecipientEmail(e.target.value);
-                  if (sendError) setSendError("");
-                }}
-                disabled={sendStatus === "sending" || sendStatus === "success"}
+                readOnly
+                disabled={
+                  sendStatus === "sending" ||
+                  sendStatus === "success" ||
+                  !currentUser?.email
+                }
               />
+              <p className="text-xs text-muted-foreground">
+                Test emails are sent to your account email ({currentUser?.email || "loading..."}).
+              </p>
             </div>
             
             <div className="space-y-2">
@@ -1336,15 +1995,27 @@ export function EmailCanvas({
               )}
             </Button>
           </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
+      {/* Login Dialog for unauthenticated users */}
+      <LoginDialog 
+        open={loginDialogOpen} 
+        onOpenChange={setLoginDialogOpen}
+        onSuccess={() => {
+          // After successful login, re-open the send dialog
+          setSendDialogOpen(true);
+        }}
+      />
+
       {/* Canvas Area */}
-      <ScrollArea className="flex-1">
+      <div className="flex-1">
         <div
           ref={setNodeRef}
           className={cn(
-            "h-full py-6 px-4 transition-colors duration-200 flex items-start justify-center drop-zone",
+            "py-6 px-4 transition-colors duration-200 flex items-start justify-center drop-zone h-full",
             isOver && "drop-zone-active"
           )}
           onClick={() => onSelectComponent(null)}
@@ -1355,23 +2026,23 @@ export function EmailCanvas({
             style={{ maxWidth: containerWidth }}
           >
             {/* Email Header Bar */}
-            <div className="bg-gray-100 rounded-t-lg border border-b-0 border-gray-200 p-2.5 flex items-center gap-2.5 flex-shrink-0">
+            <div className="bg-muted rounded-t-lg border border-b-0 border-border p-2.5 flex items-center gap-2.5 flex-shrink-0">
               <div className="flex gap-1.5">
                 <div className="w-3 h-3 rounded-full bg-red-400" />
                 <div className="w-3 h-3 rounded-full bg-yellow-400" />
                 <div className="w-3 h-3 rounded-full bg-green-400" />
               </div>
               <div className="flex-1 flex justify-center">
-                <div className="flex items-center gap-2 px-3 py-0.5 bg-white rounded-md border border-gray-200">
+                <div className="flex items-center gap-2 px-3 py-0.5 bg-background rounded-md border border-border">
                   {activeTab === "edit" ? (
                     <Layers className="h-3 w-3 text-blue-500" />
                   ) : activeTab === "layers" ? (
                     <Layers className="h-3 w-3 text-blue-500" />
                   ) : (
-                    <Eye className="h-3 w-3 text-gray-400" />
+                    <Eye className="h-3 w-3 text-muted-foreground" />
                   )}
-                  <span className="text-xs text-gray-500 truncate">
-                    {activeTab === "edit" ? "Click to select • Drag to reorder" : activeTab === "layers" ? "Component Layers" : deviceType === "desktop" ? "Desktop" : deviceType === "tablet" ? "768px" : "375px"}
+                  <span className="text-xs text-muted-foreground truncate">
+                    {activeTab === "edit" ? "Click to select • Drag to reorder" : activeTab === "layers" ? "Component Layers" : deviceType === "desktop" ? "Desktop" : "375px"}
                   </span>
                 </div>
               </div>
@@ -1379,9 +2050,10 @@ export function EmailCanvas({
             </div>
 
             {/* Email Body */}
-            <div 
+            <div
               className={cn(
-                "border border-t-0 border-gray-200 rounded-b-lg shadow-sm flex-1 overflow-hidden",
+                "border border-t-0 border-border rounded-b-lg shadow-sm overflow-hidden",
+                "flex-1",
                 isOver && "ring-2 ring-primary/50 ring-inset"
               )}
               style={{ 
@@ -1394,7 +2066,7 @@ export function EmailCanvas({
                 <EmptyState />
               ) : activeTab === "layers" ? (
                 // Layers mode: Show layers panel
-                <div className="h-full bg-white">
+                <div className="h-full bg-background">
                   <LayersPanel
                     components={components}
                     selectedComponentId={selectedComponentId}
@@ -1404,14 +2076,24 @@ export function EmailCanvas({
                 </div>
               ) : activeTab === "preview" ? (
                 // Preview mode: iframe with perfect Tailwind rendering
-                <iframe
-                  ref={iframeRef}
-                  srcDoc={html}
-                  className="w-full border-0 min-h-[400px]"
-                  style={{ margin: "0 auto", display: "block" }}
-                  title="Email Preview"
-                  sandbox="allow-same-origin"
-                />
+                <div className="h-full overflow-auto flex justify-center">
+                  <iframe
+                    ref={iframeRef}
+                    srcDoc={html}
+                    className="border-0"
+                    scrolling="auto"
+                    style={{ 
+                      margin: "0 auto", 
+                      display: "block", 
+                      overflow: "hidden",
+                      width: containerWidth,
+                      maxWidth: "100%",
+                    }}
+                    title="Email Preview"
+                    // Allow users to test link behavior in preview.
+                    sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"
+                  />
+                </div>
               ) : (
                 // Edit mode: Direct React rendering with drag-and-drop
                 // Apply global styles as a wrapper
@@ -1426,13 +2108,14 @@ export function EmailCanvas({
                 >
                   <div 
                     style={{ 
-                      maxWidth: globalStyles?.maxWidth || "600px",
+                      maxWidth: deviceMaxWidth,
+                      width: "100%",
                       margin: "0 auto",
                       backgroundColor: globalStyles?.containerBackgroundColor || "#ffffff",
                       padding: globalStyles?.containerPadding || "20px",
                     }}
                   >
-                    <SortableContext items={components.map(c => c.id)} strategy={verticalListSortingStrategy}>
+                    <SortableContext items={componentIds} strategy={verticalListSortingStrategy}>
                       {components.length === 0 ? null : (
                         <>
                           {components.map((component, index) => (
@@ -1442,10 +2125,10 @@ export function EmailCanvas({
                                 component={component}
                                 isSelected={selectedComponentId === component.id}
                                 selectedComponentId={selectedComponentId}
-                                onSelect={() => onSelectComponent(component.id)}
-                                onDelete={() => onDeleteComponent(component.id)}
-                                onSelectChild={onSelectComponent}
-                                onDeleteChild={onDeleteComponent}
+                                onSelect={() => handleSelectComponent(component.id)}
+                                onDelete={() => handleDeleteComponent(component.id)}
+                                onSelectChild={handleSelectComponent}
+                                onDeleteChild={handleDeleteComponent}
                                 onUpdateComponent={onUpdateComponent}
                               />
                             </Fragment>
@@ -1460,7 +2143,7 @@ export function EmailCanvas({
             </div>
           </div>
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }

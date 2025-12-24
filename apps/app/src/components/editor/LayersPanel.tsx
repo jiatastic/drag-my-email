@@ -103,7 +103,7 @@ function LayerItem({
           group flex items-center gap-1 py-1.5 px-2 cursor-pointer transition-colors
           ${isSelected 
             ? "bg-primary/10 text-primary border-l-2 border-primary" 
-            : "hover:bg-gray-50 border-l-2 border-transparent"
+            : "hover:bg-muted border-l-2 border-transparent"
           }
         `}
         style={{ paddingLeft: `${depth * 16 + 8}px` }}
@@ -116,12 +116,12 @@ function LayerItem({
               e.stopPropagation();
               toggleExpanded(component.id);
             }}
-            className="p-0.5 hover:bg-gray-200 rounded transition-colors"
+            className="p-0.5 hover:bg-muted rounded transition-colors"
           >
             {isExpanded ? (
-              <ChevronDown className="h-3 w-3 text-gray-500" />
+              <ChevronDown className="h-3 w-3 text-muted-foreground" />
             ) : (
-              <ChevronRight className="h-3 w-3 text-gray-500" />
+              <ChevronRight className="h-3 w-3 text-muted-foreground" />
             )}
           </button>
         ) : (
@@ -129,18 +129,18 @@ function LayerItem({
         )}
         
         {/* Icon */}
-        <span className={`flex-shrink-0 ${isSelected ? "text-primary" : "text-gray-400"}`}>
+        <span className={`flex-shrink-0 ${isSelected ? "text-primary" : "text-muted-foreground"}`}>
           {icon}
         </span>
         
         {/* Name */}
-        <span className={`text-xs font-medium truncate flex-1 ${isSelected ? "text-primary" : "text-gray-700"}`}>
+        <span className={`text-xs font-medium truncate flex-1 ${isSelected ? "text-primary" : "text-foreground"}`}>
           {displayName}
         </span>
         
         {/* Content preview */}
         {contentPreview && (
-          <span className="text-[10px] text-gray-400 truncate max-w-[60px]">
+          <span className="text-[10px] text-muted-foreground truncate max-w-[60px]">
             {contentPreview}
           </span>
         )}
@@ -220,26 +220,26 @@ export function LayersPanel({
   };
 
   return (
-    <div className="h-full flex flex-col bg-white">
+    <div className="h-full flex flex-col bg-background">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+      <div className="px-4 py-3 border-b border-border flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900">Layers</h3>
-          <p className="text-[10px] text-gray-400 mt-0.5">
+          <h3 className="text-sm font-semibold text-foreground">Layers</h3>
+          <p className="text-[10px] text-muted-foreground mt-0.5">
             {components.length} top-level component{components.length !== 1 ? "s" : ""}
           </p>
         </div>
         <div className="flex items-center gap-1">
           <button
             onClick={expandAll}
-            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+            className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors"
             title="Expand all"
           >
             <ChevronDown className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={collapseAll}
-            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+            className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors"
             title="Collapse all"
           >
             <ChevronRight className="h-3.5 w-3.5" />
@@ -252,11 +252,11 @@ export function LayersPanel({
         <div className="py-2">
           {components.length === 0 ? (
             <div className="px-4 py-8 text-center">
-              <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
-                <Box className="h-5 w-5 text-gray-400" />
+              <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
+                <Box className="h-5 w-5 text-muted-foreground" />
               </div>
-              <p className="text-sm text-gray-500">No components yet</p>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-sm text-muted-foreground">No components yet</p>
+              <p className="text-xs text-muted-foreground mt-1">
                 Drag components from the palette to get started
               </p>
             </div>
@@ -279,10 +279,10 @@ export function LayersPanel({
       
       {/* Click to deselect hint */}
       {selectedComponentId && (
-        <div className="px-4 py-2 border-t border-gray-100 bg-gray-50">
+        <div className="px-4 py-2 border-t border-border bg-muted/40">
           <button
             onClick={() => onSelectComponent(null)}
-            className="text-[10px] text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
           >
             Click to deselect • Edit global styles
           </button>
