@@ -1,6 +1,13 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
+  "globalEnv": [
+    "CONVEX_DEPLOY_KEY",
+    "AI_GATEWAY_API_KEY",
+    "RESEND_API_KEY",
+    "NEXT_PUBLIC_CONVEX_URL",
+    "NEXT_PUBLIC_APP_URL"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
