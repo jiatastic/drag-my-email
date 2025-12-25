@@ -286,22 +286,27 @@ export default function AssetsPage() {
   };
 
   // Toggle uploaded image selection (supports multiple)
+  // Note: We avoid nesting setProductImageUrls inside setSelectedUploadedImageIds to prevent
+  // double-updates in React 18 Strict Mode.
   const toggleUploadedImage = (imageUrl: string, imageId: string) => {
-    setSelectedUploadedImageIds((prev) => {
-      if (prev.includes(imageId)) {
-        // Deselect
-        const newIds = prev.filter((id) => id !== imageId);
-        setProductImageUrls((urls) => urls.filter((url) => url !== imageUrl));
-        return newIds;
-      } else {
-        // Select (max 4 images)
-        if (prev.length >= 4) {
-          return prev; // Don't add more than 4
-        }
-        setProductImageUrls((urls) => [...urls, imageUrl]);
-        return [...prev, imageId];
+    const isCurrentlySelected = selectedUploadedImageIds.includes(imageId);
+    
+    if (isCurrentlySelected) {
+      // Deselect
+      setSelectedUploadedImageIds((prev) => prev.filter((id) => id !== imageId));
+      setProductImageUrls((urls) => urls.filter((url) => url !== imageUrl));
+    } else {
+      // Select (max 4 images)
+      if (selectedUploadedImageIds.length >= 4) {
+        return; // Don't add more than 4
       }
-    });
+      setSelectedUploadedImageIds((prev) => [...prev, imageId]);
+      setProductImageUrls((urls) => {
+        // Prevent duplicates
+        if (urls.includes(imageUrl)) return urls;
+        return [...urls, imageUrl];
+      });
+    }
   };
 
   // Clear all selected images
@@ -692,7 +697,14 @@ export default function AssetsPage() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label>Product Image</Label>
+                    <div className="flex items-center justify-between">
+                      <Label>Product Image</Label>
+                      {productImageUrls.length > 0 && (
+                        <span className="text-xs text-primary font-medium flex items-center gap-1">
+                          ✓ Image editing mode ({productImageUrls.length})
+                        </span>
+                      )}
+                    </div>
                     
                     {/* Uploaded images grid */}
                     {uploadedImages && uploadedImages.length > 0 && (
@@ -868,9 +880,19 @@ export default function AssetsPage() {
                   </div>
 
                   <div className="space-y-2 pt-2 border-t">
-                    <Label>Reference Product Images (Optional)</Label>
+                    <div className="flex items-center justify-between">
+                      <Label>Reference Product Images (Optional)</Label>
+                      {productImageUrls.length > 0 && (
+                        <span className="text-xs text-primary font-medium flex items-center gap-1">
+                          ✓ Image editing mode enabled
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground mb-2">
-                      Upload product images to guide the storyboard generation. AI will use these as reference for consistent product appearance.
+                      {productImageUrls.length > 0 
+                        ? `${productImageUrls.length} image(s) selected. AI will use flux-2-flex/edit for consistent product appearance.`
+                        : "Upload product images to guide the storyboard generation. AI will use these as reference for consistent product appearance."
+                      }
                     </p>
                     
                     {/* Uploaded images grid */}

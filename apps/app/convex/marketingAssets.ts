@@ -8,11 +8,11 @@ import { fal } from "@fal-ai/client";
 type AssetStatus = "queued" | "running" | "succeeded" | "failed";
 
 // fal.ai model IDs
-const FAL_MODEL_TEXT = "fal-ai/flux-2-flex";
-const FAL_MODEL_EDIT = "fal-ai/flux-2-flex/edit";
+const FAL_MODEL_TEXT = "fal-ai/flux-2/turbo";
+const FAL_MODEL_EDIT = "fal-ai/flux-2/turbo/edit";
 
-// flux-2-flex supported image_size presets
-// Docs: https://fal.ai/models/fal-ai/flux-2-flex/api
+// flux-2/turbo supported image_size presets
+// Docs: https://fal.ai/models/fal-ai/flux-2/turbo/api
 type FalImageSizePreset = 
   | "square_hd"      // 1024x1024 HD square
   | "square"         // 512x512 standard square
@@ -34,7 +34,7 @@ type FalImageSize = FalImageSizePreset | FalCustomImageSize;
 type FalOutputFormat = "jpeg" | "png";
 
 // Asset type specifications for marketing assets
-// Using flux-2-flex's image_size presets or custom dimensions
+// Using flux-2/turbo's image_size presets or custom dimensions
 const ASSET_TYPE_SPECS: Record<string, {
   description: string;
   imageSize: FalImageSize;
@@ -141,11 +141,13 @@ const ASSET_TYPE_SPECS: Record<string, {
       "Camera shot progression across the grid (wide to close and detail shots)",
       "Premium fashion editorial tone with clean, controlled lighting",
       "Clear, readable shot labels per panel (e.g., ELS, LS, MLS...)",
+      "Photorealistic skin with natural texture, pores, and subtle imperfections",
+      "Authentic candid expressions, natural body language",
     ],
     cameraSettings: {
       angle: "varied (per panel)",
       distance: "varied (per panel)",
-      lens: "varied (per panel)",
+      lens: "shot on Canon EOS R5, varied focal length per panel (24-200mm range)",
     },
   },
 };
@@ -177,11 +179,11 @@ const STYLE_PRESETS: Record<string, {
   },
   editorial_photo: {
     label: "Editorial photo",
-    style: "Editorial photography with natural lighting and magazine-quality composition",
-    lighting: "Natural lighting with soft diffusion and gentle contrast",
-    mood: "Authentic, refined, aspirational",
-    composition: "rule of thirds",
-    background: "Lifestyle/editorial environment background (tasteful, not busy), natural tones, realistic depth of field",
+    style: "Editorial photography with natural lighting and magazine-quality composition, shot on Sony A7R IV or Canon EOS R5, photorealistic with natural skin texture and subtle imperfections",
+    lighting: "Natural window light with soft diffusion, realistic shadow falloff, golden hour warmth or overcast softbox quality, catchlights in eyes",
+    mood: "Authentic, refined, aspirational, candid moment captured",
+    composition: "rule of thirds with shallow depth of field, f/1.8 to f/2.8 aperture, natural bokeh",
+    background: "Lifestyle/editorial environment background (tasteful, not busy), natural tones, realistic depth of field with creamy background blur",
   },
   product_hero: {
     label: "Product hero",
@@ -317,7 +319,7 @@ function buildJsonPrompt(params: {
     subjects.push({
       type: "Storyboard grid",
       description:
-        "3x3 cinematic storyboard grid for a luxury e-commerce fashion campaign. One consistent model across all panels, same outfit, same lighting, same identity. Clear shot labels for each panel and consistent gutters. Use the selected style preset for overall look and background (do not hardcode warm/cream backgrounds).",
+        "3x3 cinematic storyboard grid for a luxury e-commerce fashion campaign. One consistent model across all panels, same outfit, same lighting, same identity. Clear shot labels for each panel and consistent gutters. Use the selected style preset for overall look and background (do not hardcode warm/cream backgrounds). Model should have photorealistic features: natural skin texture with visible pores and subtle imperfections, authentic expressions with natural facial asymmetry, realistic eye detail with proper catchlights, natural hair with individual strand visibility. Avoid plastic/airbrushed/doll-like appearance.",
       position: "foreground",
     });
   }
@@ -334,7 +336,7 @@ function buildJsonPrompt(params: {
     // Keep e-commerce-specific direction, but do NOT override the background into a single hardcoded warm palette.
     // Use stylePreset to control the background look and overall aesthetic.
     finalStyle = `${preset.style}. Professional e-commerce product photography, premium product presentation, elegant typography with glass morphism or 3D embossed text effects, generous whitespace. Background: ${finalBackground}.`;
-    finalLighting = `Professional studio soft lighting, controlled highlights, gentle shadows, natural diffusion, high-end fashion photography quality, realistic texture rendering`;
+    finalLighting = `Professional studio soft lighting shot on Phase One IQ4 or Hasselblad H6D, controlled highlights with gentle shadow falloff, natural diffusion through large softbox, high-end fashion photography quality, realistic texture rendering with natural skin tones, subtle catchlights in reflective surfaces`;
     finalMood = `Premium, trustworthy, sophisticated, clean, professional, high-end retail aesthetic`;
     
     // Add product features if provided
@@ -382,7 +384,7 @@ Technical specifications:
 Detailed JSON specification:
 ${jsonStr}
 
-Negative prompt: cluttered, busy, multiple patterns, shadows, watermark, messy text, low quality, blurry, plain face, AI-generated artifacts, distorted text, poor typography, inconsistent style, Chinese characters, Asian text`;
+Negative prompt: cluttered, busy, multiple patterns, harsh shadows, watermark, messy text, low quality, blurry, AI-generated artifacts, distorted text, poor typography, inconsistent style, Chinese characters, Asian text. For any human elements: plastic skin, airbrushed face, doll-like appearance, uncanny valley, dead eyes, fake smile, stiff pose, wax figure look, CGI appearance, overprocessed skin, extra fingers, distorted hands`;
     } else {
       // Simple mode: Concise prompt with JSON structure
       finalPrompt = `9:16 vertical premium product poster, Apple minimalist style, elegant typography, clean studio background. Background: ${finalBackground}. Generous whitespace. Specification: ${jsonStr}`;
@@ -391,19 +393,34 @@ Negative prompt: cluttered, busy, multiple patterns, shadows, watermark, messy t
     if (params.type === "storyboard_grid") {
       // Storyboard mode: add explicit grid requirements while keeping it flexible via promptOverrides.
       // Keep background dynamic via style preset.
-      finalPrompt = `Generate a 3x3 cinematic storyboard grid.
+      // Enhanced with realistic portrait photography techniques to reduce AI artifacts
+      finalPrompt = `Generate a 3x3 cinematic storyboard grid, shot on Canon EOS R5 with varied lenses (24mm to 200mm across panels).
 
 Global constraints:
 - One consistent model across all panels (same identity/face, same outfit, same hair and makeup)
 - Consistent lighting across all panels: ${finalLighting}
 - Background: ${finalBackground}
-- Tone: premium fashion editorial, luxury e-commerce style
+- Tone: premium fashion editorial, luxury e-commerce style, inspired by Annie Leibovitz and Mario Testino photography
 - Typography: minimal, only shot labels if included; avoid extra decorative text
+
+Portrait realism requirements:
+- Photorealistic skin texture with natural pores, fine lines, and subtle imperfections (not plastic or airbrushed)
+- Natural skin tones with realistic subsurface scattering
+- Authentic candid expressions with natural asymmetry
+- Realistic eye catchlights and iris detail
+- Natural hair with individual strand visibility
+- Genuine body language and posture
+
+Technical photography specifications:
+- Shallow depth of field with natural bokeh in close-up panels
+- Realistic light falloff and soft shadows
+- Film grain texture similar to Kodak Portra 400 or Fuji Pro 400H
+- Natural color grading, avoid oversaturation
 
 Specification:
 ${JSON.stringify(jsonPrompt, null, 2)}
 
-Negative prompt: inconsistent face, different person, multiple identities, face drift, extra limbs, distorted hands, broken grid layout, misaligned panels, unreadable labels, messy text, watermark, low quality, blurry, artifacts`;
+Negative prompt: plastic skin, airbrushed face, symmetrical face, perfect skin, doll-like appearance, uncanny valley, dead eyes, fake smile, stiff pose, wax figure look, CGI appearance, overprocessed, HDR overdone, inconsistent face, different person, multiple identities, face drift, extra limbs, distorted hands, extra fingers, broken grid layout, misaligned panels, unreadable labels, messy text, watermark, low quality, blurry, artifacts`;
     } else {
       // Standard mode: JSON structure
       finalPrompt = JSON.stringify(jsonPrompt, null, 2);
@@ -419,7 +436,7 @@ Negative prompt: inconsistent face, different person, multiple identities, face 
 }
 
 // Call fal.ai API using official client
-// Uses flux-2-flex for text-to-image, flux-2-flex/edit for image-to-image
+// Uses flux-2/turbo for text-to-image, flux-2/turbo/edit for image-to-image
 async function callFalAPI(params: {
   prompt: string;
   imageSize: FalImageSize;
@@ -704,7 +721,7 @@ export const generate = action({
       productFeatures: args.productFeatures,
     });
 
-    const provider = "fal.ai/flux-2-flex";
+    const provider = "fal.ai/flux-2/turbo";
     const assetId = await ctx.runMutation(api.marketingAssets.create, {
       brandId: args.brandId,
       type: args.type,
@@ -731,7 +748,7 @@ export const generate = action({
 
     try {
       // Call fal.ai API
-      // Use flux-2-flex/edit if product image is provided, otherwise flux-2-flex
+      // Use flux-2/turbo/edit if product image is provided, otherwise flux-2/turbo
       const falResult = await callFalAPI({
         prompt,
         imageSize: spec.imageSize,
@@ -761,7 +778,7 @@ export const generate = action({
       const usedEditMode = args.productImageUrls && args.productImageUrls.length > 0;
       const resultMeta = {
         provider: "fal.ai",
-        model: usedEditMode ? "fal-ai/flux-2-flex/edit" : "fal-ai/flux-2-flex",
+        model: usedEditMode ? "fal-ai/flux-2/turbo/edit" : "fal-ai/flux-2/turbo",
         stylePreset: args.stylePreset || "brand_strict",
         promptFormat: "json_structured",
         mediaType,
