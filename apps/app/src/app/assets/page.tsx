@@ -37,9 +37,13 @@ import {
   Info,
   Sparkles,
   Copy,
+  Upload,
+  Image as ImageIcon,
+  Check,
 } from "lucide-react";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { getGoogleFaviconUrl } from "@/lib/social-icons";
+import { TruncatedText } from "@/components/ui/truncated-text";
 
 type BrandingProfile = {
   colorScheme?: "light" | "dark";
@@ -103,6 +107,8 @@ function getAssetAspectClass(type: string): string {
   if (type === "hero") return "aspect-[16/9]";
   if (type === "social_post") return "aspect-square";
   if (type === "logo_variant") return "aspect-square";
+  if (type === "product_detail") return "aspect-[9/16]";
+  if (type === "product_showcase") return "aspect-[9/16]";
   return "aspect-[16/9]";
 }
 
@@ -162,11 +168,131 @@ export default function AssetsPage() {
   const [stylePreset, setStylePreset] = useState<
     "brand_strict" | "minimal_modern" | "editorial_photo" | "cinematic_3d" | "gradient_abstract" | "product_hero"
   >("brand_strict");
+  
+  // E-commerce mode state
+  const [productImageUrls, setProductImageUrls] = useState<string[]>([]);
+  const [productFeaturesInput, setProductFeaturesInput] = useState("");
+  const [ecommerceMode, setEcommerceMode] = useState<"simple" | "detailed">("detailed");
   const [promptOverrides, setPromptOverrides] = useState("");
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [defaultPreviewFallback, setDefaultPreviewFallback] = useState<Record<number, boolean>>({});
+
+  // Uploaded images state
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [selectedUploadedImageIds, setSelectedUploadedImageIds] = useState<string[]>([]);
+
+  // Queries and mutations for uploaded images
+  const uploadedImages = useQuery(
+    api.uploadedImages.listByBrand,
+    selectedBrandId ? ({ brandId: selectedBrandId as any } as any) : ("skip" as any)
+  );
+  const generateUploadUrl = useMutation(api.uploadedImages.generateUploadUrl);
+  const saveUploadedImage = useMutation(api.uploadedImages.saveUploadedImage);
+  const removeUploadedImage = useMutation(api.uploadedImages.remove);
+
+  // Handle file upload
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedBrandId) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      setUploadError("Please select an image file (JPEG, PNG, etc.)");
+      return;
+    }
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError("Image must be smaller than 10MB");
+      return;
+    }
+
+    setUploading(true);
+    setUploadError(null);
+
+    try {
+      // Get upload URL from Convex
+      const uploadUrl = await generateUploadUrl();
+
+      // Upload file directly to Convex storage
+      const response = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+
+      if (!response.ok) {
+        throw new Error("Upload failed");
+      }
+
+      const { storageId } = await response.json();
+
+      // Get image dimensions
+      let width: number | undefined;
+      let height: number | undefined;
+      try {
+        const img = new window.Image();
+        img.src = URL.createObjectURL(file);
+        await new Promise<void>((resolve) => {
+          img.onload = () => {
+            width = img.naturalWidth;
+            height = img.naturalHeight;
+            resolve();
+          };
+          img.onerror = () => resolve();
+        });
+      } catch {
+        // Ignore dimension detection errors
+      }
+
+      // Save image metadata
+      await saveUploadedImage({
+        brandId: selectedBrandId as any,
+        storageId,
+        name: file.name.replace(/\.[^/.]+$/, ""), // Remove extension
+        mimeType: file.type,
+        size: file.size,
+        width,
+        height,
+        category: "product", // Default category
+      });
+
+      // Reset file input
+      e.target.value = "";
+    } catch (err: any) {
+      setUploadError(err?.message || "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Toggle uploaded image selection (supports multiple)
+  const toggleUploadedImage = (imageUrl: string, imageId: string) => {
+    setSelectedUploadedImageIds((prev) => {
+      if (prev.includes(imageId)) {
+        // Deselect
+        const newIds = prev.filter((id) => id !== imageId);
+        setProductImageUrls((urls) => urls.filter((url) => url !== imageUrl));
+        return newIds;
+      } else {
+        // Select (max 4 images)
+        if (prev.length >= 4) {
+          return prev; // Don't add more than 4
+        }
+        setProductImageUrls((urls) => [...urls, imageUrl]);
+        return [...prev, imageId];
+      }
+    });
+  };
+
+  // Clear all selected images
+  const clearSelectedImages = () => {
+    setSelectedUploadedImageIds([]);
+    setProductImageUrls([]);
+  };
 
   const defaultPreviewTiles = useMemo(
     () => [
@@ -256,54 +382,68 @@ export default function AssetsPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Top bar */}
-      <div className="sticky top-0 z-50 h-12 border-b bg-background flex items-center justify-between px-4">
-        <div className="flex items-center gap-4">
-          <Link href="/builder" className="text-sm font-semibold hover:underline">
-            Builder
-          </Link>
-          <span className="text-sm font-semibold text-muted-foreground">Assets</span>
-        </div>
+      <div className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex h-12 items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Link 
+                href="/builder" 
+                className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Builder
+              </Link>
+              <div className="h-4 w-px bg-border" />
+              <span className="text-sm font-semibold text-foreground">Assets</span>
+            </div>
 
-        <div className="flex items-center gap-2">
-          {/* Brand switcher (desktop) */}
-          <div className="hidden sm:block w-[220px]">
-            <Select
-              value={selectedBrandId ?? undefined}
-              onValueChange={(v) => setSelectedBrandId(v)}
-              disabled={!brands || brands.length === 0}
-            >
-              <SelectTrigger className="h-8">
-                <SelectValue placeholder={brands && brands.length === 0 ? "No brands" : "Select brand"} />
-              </SelectTrigger>
-              <SelectContent>
-                {(brands ?? []).map((b: any) => (
-                  <SelectItem key={b._id} value={b._id}>
-                    {b.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-3">
+              {/* Brand switcher (desktop) */}
+              <div className="hidden sm:block w-[240px]">
+                <Select
+                  value={selectedBrandId ?? undefined}
+                  onValueChange={(v) => setSelectedBrandId(v)}
+                  disabled={!brands || brands.length === 0}
+                >
+                  <SelectTrigger className="h-8 border-border/50 bg-muted/30 hover:bg-muted/50 transition-colors">
+                    <SelectValue placeholder={brands && brands.length === 0 ? "No brands" : "Select brand"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(brands ?? []).map((b: any) => (
+                      <SelectItem key={b._id} value={b._id}>
+                        {b.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="hidden sm:flex items-center gap-2 rounded-lg border border-border/50 bg-muted/20 px-3 py-1.5 text-xs">
+                <span className="text-muted-foreground">Brands</span>
+                <span className="font-semibold text-foreground">{brandCount}/{limit}</span>
+              </div>
+
+              <Button 
+                size="sm" 
+                onClick={() => setImportOpen(true)} 
+                disabled={!isAuthenticated || !canImportMore}
+                className="shadow-sm hover:shadow transition-shadow"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                New Brand
+              </Button>
+
+              <UserMenu />
+            </div>
           </div>
-
-          <div className="hidden sm:flex items-center rounded-full border bg-muted/30 px-3 py-1 text-xs text-muted-foreground">
-            Brands <span className="ml-1 font-medium text-foreground">{brandCount}/{limit}</span>
-          </div>
-
-          <Button size="sm" onClick={() => setImportOpen(true)} disabled={!isAuthenticated || !canImportMore}>
-            <Plus className="mr-2 h-4 w-4" />
-            New Brand
-          </Button>
-
-          <UserMenu />
         </div>
       </div>
 
-      <div className="mx-auto max-w-6xl p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Brand assets</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Visual identity + generated marketing images for each brand.
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold tracking-tight">Brand Assets</h1>
+            <p className="text-sm text-muted-foreground">
+              Visual identity and AI-generated marketing images for your brands
             </p>
           </div>
 
@@ -315,7 +455,7 @@ export default function AssetsPage() {
                 onValueChange={(v) => setSelectedBrandId(v)}
                 disabled={!brands || brands.length === 0}
               >
-                <SelectTrigger className="h-9">
+              <SelectTrigger className="h-8">
                   <SelectValue placeholder={brands && brands.length === 0 ? "No brands" : "Brand"} />
                 </SelectTrigger>
                 <SelectContent>
@@ -335,11 +475,11 @@ export default function AssetsPage() {
 
         {/* Import dialog */}
         <Dialog open={importOpen} onOpenChange={setImportOpen}>
-          <DialogContent className="sm:max-w-md">
-                <DialogHeader className="space-y-2">
-                  <DialogTitle>Import a brand</DialogTitle>
-                  <DialogDescription>
-                    Paste a public website URL. We’ll fetch brand colors, fonts and logos using Firecrawl.
+          <DialogContent className="sm:max-w-lg border-border/50 shadow-xl">
+                <DialogHeader className="space-y-3">
+                  <DialogTitle className="text-xl font-bold">Import a brand</DialogTitle>
+                  <DialogDescription className="text-base leading-relaxed">
+                    Paste a public website URL. We'll fetch brand colors, fonts and logos using Firecrawl.
                   </DialogDescription>
                 </DialogHeader>
 
@@ -359,30 +499,52 @@ export default function AssetsPage() {
                     </p>
                   </div>
 
-                  <div className="rounded-md border bg-muted/30 p-3">
-                    <div className="flex items-start gap-2">
-                      <Info className="mt-0.5 h-4 w-4 text-muted-foreground" />
-                      <div className="space-y-1">
-                        <div className="text-sm font-medium">What gets imported</div>
-                        <ul className="list-disc space-y-1 pl-4 text-xs text-muted-foreground">
-                          <li>Brand colors + typography</li>
-                          <li>Logo / favicon / OG image URLs (when available)</li>
-                          <li>A short brand summary (when available)</li>
-                        </ul>
+                  <Card className="border-border/50 bg-gradient-to-br from-muted/30 to-muted/10">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <Info className="mt-0.5 h-5 w-5 text-primary shrink-0" />
+                        <div className="space-y-2">
+                          <div className="text-sm font-semibold">What gets imported</div>
+                          <ul className="space-y-1.5 text-sm text-muted-foreground">
+                            <li className="flex items-start gap-2">
+                              <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                              <span>Brand colors + typography</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                              <span>Logo / favicon / OG image URLs (when available)</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                              <span>A short brand summary (when available)</span>
+                            </li>
+                          </ul>
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
 
-                  {importError && <p className="text-sm text-destructive">{importError}</p>}
+                  {importError && (
+                    <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3">
+                      <p className="text-sm font-medium text-destructive">{importError}</p>
+                    </div>
+                  )}
                   {!canImportMore && (
-                    <p className="text-sm text-muted-foreground">
-                      You reached the brand limit for your plan. Upgrade to import more.
-                    </p>
+                    <div className="rounded-lg border border-border/50 bg-muted/20 p-3">
+                      <p className="text-sm text-muted-foreground">
+                        You reached the brand limit for your plan. Upgrade to import more.
+                      </p>
+                    </div>
                   )}
                 </div>
 
-                <DialogFooter className="mt-6 gap-2">
-                  <Button variant="outline" onClick={() => setImportOpen(false)} disabled={importing}>
+                <DialogFooter className="mt-6 gap-3">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setImportOpen(false)} 
+                    disabled={importing}
+                    className="border-border/50 hover:bg-muted/50"
+                  >
                     Cancel
                   </Button>
                   <Button
@@ -400,6 +562,7 @@ export default function AssetsPage() {
                       }
                     }}
                     disabled={importing || !importUrl.trim()}
+                    className="shadow-sm hover:shadow transition-shadow"
                   >
                     {importing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {importing ? "Importing..." : "Import"}
@@ -410,10 +573,10 @@ export default function AssetsPage() {
 
         {/* Generate dialog */}
         <Dialog open={generateOpen} onOpenChange={setGenerateOpen}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader className="space-y-2">
-              <DialogTitle>Create marketing asset</DialogTitle>
-              <DialogDescription>
+          <DialogContent className="sm:max-w-2xl border-border/50 shadow-xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader className="space-y-3">
+              <DialogTitle className="text-xl font-bold">Create marketing asset</DialogTitle>
+              <DialogDescription className="text-base leading-relaxed">
                 Generate on-brand visuals from your brand kit.
               </DialogDescription>
             </DialogHeader>
@@ -421,29 +584,34 @@ export default function AssetsPage() {
             <div className="mt-4 space-y-4">
               {/* Brand context indicator */}
               {selectedBrand && (
-                <div className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
-                  <div className="h-10 w-10 rounded-lg border bg-background overflow-hidden flex items-center justify-center">
-                    {selectedFaviconUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={selectedFaviconUrl} alt="favicon" className="h-8 w-8 object-contain" />
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Favicon</span>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{selectedBrand.name}</div>
-                    <div className="text-xs text-muted-foreground">Brand context will be applied</div>
-                  </div>
-                  <div className="flex gap-1">
-                    {branding?.colors && Object.entries(branding.colors).slice(0, 4).map(([k, hex]) => (
-                      <div
-                        key={k}
-                        className="h-5 w-5 rounded-full border border-border"
-                        style={{ backgroundColor: hex }}
-                      />
-                    ))}
-                  </div>
-                </div>
+                <Card className="border-border/50 bg-gradient-to-br from-muted/30 to-muted/10">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-4">
+                      <div className="h-12 w-12 shrink-0 rounded-xl border border-border/50 bg-background overflow-hidden flex items-center justify-center shadow-sm">
+                        {selectedFaviconUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={selectedFaviconUrl} alt="favicon" className="h-10 w-10 object-contain p-1" />
+                        ) : (
+                          <span className="text-xs font-medium text-muted-foreground">Logo</span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold truncate text-foreground">{selectedBrand.name}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">Brand context will be applied</div>
+                      </div>
+                      <div className="flex gap-1.5">
+                        {branding?.colors && Object.entries(branding.colors).slice(0, 4).map(([k, hex]) => (
+                          <div
+                            key={k}
+                            className="h-6 w-6 rounded-lg border border-border/50 shadow-sm"
+                            style={{ backgroundColor: hex }}
+                            title={hex}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               )}
 
               <div className="space-y-2">
@@ -477,9 +645,163 @@ export default function AssetsPage() {
                         <span className="text-xs text-muted-foreground">App icons, profile pictures (1:1)</span>
                       </div>
                     </SelectItem>
+                    <SelectItem value="product_detail">
+                      <div className="flex flex-col items-start">
+                        <span className="font-medium">🛒 Product Detail</span>
+                        <span className="text-xs text-muted-foreground">E-commerce detail page, bilingual (9:16)</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="product_showcase">
+                      <div className="flex flex-col items-start">
+                        <span className="font-medium">🛒 Product Showcase</span>
+                        <span className="text-xs text-muted-foreground">Color/size guide, feature highlights (9:16)</span>
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* E-commerce specific options */}
+              {(assetType === "product_detail" || assetType === "product_showcase") && (
+                <div className="space-y-4 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">🛒 E-commerce Mode</span>
+                    <span className="text-xs text-muted-foreground">Apple minimalist, bilingual (中/EN)</span>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Product Image</Label>
+                    
+                    {/* Uploaded images grid */}
+                    {uploadedImages && uploadedImages.length > 0 && (
+                      <div className="grid grid-cols-4 gap-2 mb-2">
+                        {uploadedImages.map((img: any) => {
+                          const isSelected = selectedUploadedImageIds.includes(img._id);
+                          const selectionIndex = selectedUploadedImageIds.indexOf(img._id);
+                          return (
+                            <button
+                              key={img._id}
+                              type="button"
+                              onClick={() => toggleUploadedImage(img.url, img._id)}
+                              className={`relative aspect-square rounded-md overflow-hidden border-2 transition-all ${
+                                isSelected
+                                  ? "border-primary ring-2 ring-primary/20"
+                                  : "border-transparent hover:border-muted-foreground/30"
+                              }`}
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={img.url}
+                                alt={img.name}
+                                className="w-full h-full object-cover"
+                              />
+                              {isSelected && (
+                                <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                                  <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-bold flex items-center justify-center">
+                                    {selectionIndex + 1}
+                                  </span>
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Upload button */}
+                    <div className="flex gap-2">
+                      <label className="flex-1">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          className="hidden"
+                          disabled={uploading}
+                        />
+                        <div className="flex items-center justify-center gap-2 px-3 py-2 border border-dashed rounded-md cursor-pointer hover:bg-muted/50 transition-colors">
+                          {uploading ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Upload className="w-4 h-4" />
+                          )}
+                          <span className="text-sm">
+                            {uploading ? "Uploading..." : "Upload product image"}
+                          </span>
+                        </div>
+                      </label>
+                      {selectedUploadedImageIds.length > 0 && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={clearSelectedImages}
+                        >
+                          Clear ({selectedUploadedImageIds.length})
+                        </Button>
+                      )}
+                    </div>
+
+                    {uploadError && (
+                      <p className="text-xs text-destructive">{uploadError}</p>
+                    )}
+
+                    {/* Manual URL input (fallback) */}
+                    <div className="pt-2 border-t">
+                      <Label htmlFor="product-image-urls" className="text-xs text-muted-foreground">Or paste URLs (one per line, max 4)</Label>
+                      <textarea
+                        id="product-image-urls"
+                        value={productImageUrls.join("\n")}
+                        onChange={(e) => {
+                          const urls = e.target.value.split("\n").filter((u) => u.trim()).slice(0, 4);
+                          setProductImageUrls(urls);
+                          setSelectedUploadedImageIds([]);
+                        }}
+                        placeholder="https://example.com/product1.jpg&#10;https://example.com/product2.jpg"
+                        className="mt-1 w-full min-h-[80px] px-3 py-2 text-sm border rounded-md bg-background"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {productImageUrls.length}/4 images selected
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="product-features">Product Features</Label>
+                    <Input
+                      id="product-features"
+                      value={productFeaturesInput}
+                      onChange={(e) => setProductFeaturesInput(e.target.value)}
+                      placeholder="12h heat retention, one-touch open, 316 stainless"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Comma-separated features (e.g. 12小时保温, 一键开合)
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Prompt Mode</Label>
+                    <Select value={ecommerceMode} onValueChange={(v) => setEcommerceMode(v as "simple" | "detailed")}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="detailed">
+                          <div className="flex flex-col items-start">
+                            <span className="font-medium">Detailed (Recommended)</span>
+                            <span className="text-xs text-muted-foreground">Full specs, stable output</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="simple">
+                          <div className="flex flex-col items-start">
+                            <span className="font-medium">Simple</span>
+                            <span className="text-xs text-muted-foreground">Concise, more AI creativity</span>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label>Professional styling</Label>
@@ -548,11 +870,20 @@ export default function AssetsPage() {
                 </p>
               </div>
 
-              {generateError && <p className="text-sm text-destructive">{generateError}</p>}
+              {generateError && (
+                <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3">
+                  <p className="text-sm font-medium text-destructive">{generateError}</p>
+                </div>
+              )}
             </div>
 
-            <DialogFooter className="mt-6 gap-2">
-              <Button variant="outline" onClick={() => setGenerateOpen(false)} disabled={generating}>
+            <DialogFooter className="mt-6 gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => setGenerateOpen(false)} 
+                disabled={generating}
+                className="border-border/50 hover:bg-muted/50"
+              >
                 Cancel
               </Button>
               <Button
@@ -561,13 +892,25 @@ export default function AssetsPage() {
                   setGenerateError(null);
                   setGenerating(true);
                   try {
+                    // Parse product features from comma-separated input
+                    const productFeatures = productFeaturesInput.trim()
+                      ? productFeaturesInput.split(",").map((f) => f.trim()).filter(Boolean)
+                      : undefined;
+
                     await generateAsset({
                       brandId: selectedBrandId as any,
                       type: assetType,
                       stylePreset,
                       promptOverrides: promptOverrides.trim() || undefined,
+                      // E-commerce specific parameters
+                      productImageUrls: productImageUrls.length > 0 ? productImageUrls : undefined,
+                      ecommerceMode: (assetType === "product_detail" || assetType === "product_showcase") ? ecommerceMode : undefined,
+                      productFeatures: productFeatures?.length ? productFeatures : undefined,
                     });
                     setPromptOverrides("");
+                    setProductImageUrls([]);
+                    setSelectedUploadedImageIds([]);
+                    setProductFeaturesInput("");
                     setGenerateOpen(false);
                   } catch (e: any) {
                     setGenerateError(e?.message ?? "Failed to generate asset");
@@ -576,6 +919,7 @@ export default function AssetsPage() {
                   }
                 }}
                 disabled={generating || !selectedBrandId}
+                className="shadow-sm hover:shadow transition-shadow"
               >
                 {generating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {generating ? "Generating..." : "Generate"}
@@ -586,33 +930,51 @@ export default function AssetsPage() {
 
         {/* Empty state (visual onboarding) */}
         {!isLoading && isAuthenticated && !hasBrands && (
-          <Card className="mt-6 overflow-hidden">
-            <CardContent className="p-8">
-              <div className="grid gap-8 lg:grid-cols-[360px_1fr]">
-                <div>
-                  <h2 className="text-xl font-semibold tracking-tight">Create your first brand library</h2>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Import a brand once, then generate consistent hero images, banners, and social posts.
-                  </p>
-                  <div className="mt-6 space-y-3">
-                    <Button onClick={() => setImportOpen(true)} disabled={!canImportMore} className="w-full">
-                      <Plus className="mr-2 h-4 w-4" />
+          <Card className="overflow-hidden border-border/50 shadow-lg">
+            <CardContent className="p-8 sm:p-10">
+              <div className="grid gap-10 lg:grid-cols-[400px_1fr]">
+                <div className="space-y-6">
+                  <div className="space-y-3">
+                    <h2 className="text-2xl font-bold tracking-tight">Create your first brand library</h2>
+                    <p className="text-base text-muted-foreground leading-relaxed">
+                      Import a brand once, then generate consistent hero images, banners, and social posts with AI.
+                    </p>
+                  </div>
+                  <div className="space-y-4">
+                    <Button 
+                      onClick={() => setImportOpen(true)} 
+                      disabled={!canImportMore} 
+                      className="w-full h-11 text-base shadow-md hover:shadow-lg transition-all"
+                      size="lg"
+                    >
+                      <Plus className="mr-2 h-5 w-5" />
                       Import a brand
                     </Button>
-                    <div className="rounded-lg border bg-muted/30 p-4">
-                      <div className="text-sm font-medium">What you’ll get</div>
-                      <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-muted-foreground">
-                        <li>Brand summary, colors, fonts, logos</li>
-                        <li>A visual gallery of generated marketing assets</li>
-                        <li>Reusable context for AI email generation</li>
-                      </ul>
-                    </div>
+                    <Card className="border-border/50 bg-gradient-to-br from-muted/40 to-muted/20">
+                      <CardContent className="p-5">
+                        <div className="mb-3 text-sm font-semibold">What you'll get</div>
+                        <ul className="space-y-2 text-sm text-muted-foreground">
+                          <li className="flex items-start gap-2">
+                            <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                            <span>Brand summary, colors, fonts, and logos</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                            <span>A visual gallery of generated marketing assets</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                            <span>Reusable context for AI email generation</span>
+                          </li>
+                        </ul>
+                      </CardContent>
+                    </Card>
                   </div>
                 </div>
 
-                <div className="rounded-2xl border bg-gradient-to-b from-muted/15 to-background p-4 sm:p-5">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <div className="text-sm font-medium">Gallery preview</div>
+                <div className="rounded-2xl border border-border/50 bg-gradient-to-br from-muted/20 via-background to-muted/10 p-5 sm:p-6 shadow-inner">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="text-sm font-semibold">Gallery Preview</div>
                     <div className="text-xs text-muted-foreground">Generated from your brand</div>
                   </div>
 
@@ -621,14 +983,14 @@ export default function AssetsPage() {
                       <div
                         key={tile.url}
                         className={[
-                          "group relative overflow-hidden rounded-2xl border bg-muted/20 shadow-sm transition",
-                          "hover:-translate-y-0.5 hover:shadow-md",
+                          "group relative overflow-hidden rounded-xl border border-border/50 bg-muted/30 shadow-sm transition-all duration-300",
+                          "hover:-translate-y-1 hover:shadow-lg hover:border-border",
                           tile.aspect,
                           tile.colSpan ?? "",
                         ].join(" ")}
                       >
-                        <div className="absolute inset-0 bg-gradient-to-br from-muted/40 via-muted/10 to-background" />
-                        <div className="absolute inset-0 opacity-30 [background:radial-gradient(circle_at_30%_20%,hsl(var(--primary)/0.14),transparent_55%)]" />
+                        <div className="absolute inset-0 bg-gradient-to-br from-muted/50 via-muted/20 to-background/50" />
+                        <div className="absolute inset-0 opacity-40 [background:radial-gradient(circle_at_30%_20%,hsl(var(--primary)/0.2),transparent_60%)]" />
 
                         {!defaultPreviewFallback[idx] ? (
                           // Website screenshot
@@ -636,7 +998,7 @@ export default function AssetsPage() {
                           <img
                             src={tile.screenshotSrc}
                             alt={`${tile.label} website preview`}
-                            className="absolute inset-0 h-full w-full object-cover opacity-95 transition duration-300 group-hover:opacity-100 group-hover:scale-[1.02]"
+                            className="absolute inset-0 h-full w-full object-cover opacity-90 transition-all duration-500 group-hover:opacity-100 group-hover:scale-[1.03]"
                             loading="lazy"
                             decoding="async"
                             referrerPolicy="no-referrer"
@@ -647,12 +1009,12 @@ export default function AssetsPage() {
                         ) : (
                           // Fallback: logo if screenshot fails
                           <>
-                            <div className="absolute inset-0 bg-gradient-to-br from-background via-muted/20 to-background" />
+                            <div className="absolute inset-0 bg-gradient-to-br from-background via-muted/30 to-background" />
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={tile.logoSrc}
                               alt={`${tile.label} logo`}
-                              className="absolute inset-0 h-full w-full object-contain p-7 opacity-95 transition duration-300 group-hover:opacity-100"
+                              className="absolute inset-0 h-full w-full object-contain p-8 opacity-90 transition-all duration-500 group-hover:opacity-100 group-hover:scale-105"
                               loading="lazy"
                               decoding="async"
                               referrerPolicy="no-referrer"
@@ -660,12 +1022,12 @@ export default function AssetsPage() {
                           </>
                         )}
 
-                        <div className="absolute inset-0 bg-gradient-to-t from-background/70 via-background/10 to-transparent" />
-                        <div className="absolute -inset-12 translate-x-[-70%] rotate-12 bg-gradient-to-r from-transparent via-white/15 to-transparent transition-transform duration-700 group-hover:translate-x-[70%]" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/20 to-transparent" />
+                        <div className="absolute -inset-16 translate-x-[-70%] rotate-12 bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-1000 group-hover:translate-x-[70%]" />
 
                         {tile.label && (
                           <div className="absolute left-3 bottom-3">
-                            <span className="inline-flex items-center rounded-full border bg-background/70 px-2.5 py-1 text-[11px] font-medium text-foreground shadow-sm backdrop-blur">
+                            <span className="inline-flex items-center rounded-lg border border-border/50 bg-background/90 px-2.5 py-1 text-[11px] font-semibold text-foreground shadow-md backdrop-blur-sm">
                               {tile.label}
                             </span>
                           </div>
@@ -680,153 +1042,168 @@ export default function AssetsPage() {
         )}
 
         {(isLoading || (!isAuthenticated && !isLoading)) && (
-          <Card className="mt-6">
-            <CardContent className="p-6">
+          <Card className="border-border/50 shadow-sm">
+            <CardContent className="p-12 text-center">
               {!isAuthenticated ? (
-                <p className="text-sm text-muted-foreground">
-                  Please sign in to import brands and generate assets.
-                </p>
+                <div className="space-y-2">
+                  <p className="text-base font-medium text-foreground">
+                    Please sign in to import brands and generate assets
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Create an account to get started with brand asset management
+                  </p>
+                </div>
               ) : (
-                <p className="text-sm text-muted-foreground">Loading...</p>
+                <div className="flex items-center justify-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Loading...</p>
+                </div>
               )}
             </CardContent>
           </Card>
         )}
 
         {isAuthenticated && hasBrands && (
-          <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[360px_1fr]">
             {/* Left: Brand identity sidebar */}
-            <aside className="lg:sticky lg:top-6 self-start">
-              <Card className="overflow-hidden">
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="h-14 w-14 rounded-xl border bg-muted/30 overflow-hidden flex items-center justify-center">
+            <aside className="lg:sticky lg:top-8 self-start">
+              <Card className="overflow-hidden border-border/50 shadow-lg">
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-4">
+                    <div className="h-16 w-16 shrink-0 rounded-xl border border-border/50 bg-muted/40 overflow-hidden flex items-center justify-center shadow-sm">
                       {selectedFaviconUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={selectedFaviconUrl} alt="favicon" className="h-12 w-12 object-contain" />
+                        <img src={selectedFaviconUrl} alt="favicon" className="h-14 w-14 object-contain p-1" />
                       ) : (
-                        <span className="text-xs text-muted-foreground">Favicon</span>
+                        <span className="text-xs font-medium text-muted-foreground">Logo</span>
                       )}
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-semibold truncate">{selectedBrand?.name}</div>
-                      <div className="text-xs text-muted-foreground truncate">{selectedBrand?.domain}</div>
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="text-base font-bold truncate text-foreground">{selectedBrand?.name}</div>
+                      <div className="text-sm text-muted-foreground truncate">{selectedBrand?.domain}</div>
                       {selectedBrand?.summary && (
-                        <p className="mt-2 text-xs text-muted-foreground line-clamp-3">{selectedBrand.summary}</p>
+                        <TruncatedText
+                          text={selectedBrand.summary}
+                          maxLines={3}
+                          className="mt-2 text-sm"
+                        />
                       )}
                     </div>
                   </div>
 
-                  <div className="mt-5 flex items-center gap-2 border-t pt-4">
+                  <div className="mt-6 flex items-center gap-2 border-t border-border/50 pt-5">
                     <Button 
                       size="sm" 
                       onClick={() => setGenerateOpen(true)} 
                       disabled={!hasSelectedBrand}
-                      className="flex-1 sm:flex-none"
+                      className="flex-1 shadow-sm hover:shadow transition-shadow"
                     >
                       <Sparkles className="mr-2 h-4 w-4" />
-                      Create
+                      Create Asset
                     </Button>
                     {selectedBrand?.url && (
                       <Button 
                         size="sm" 
                         variant="outline" 
                         asChild
-                        className="flex-1 sm:flex-none"
+                        className="border-border/50 hover:bg-muted/50"
                       >
                         <a href={selectedBrand.url} target="_blank" rel="noreferrer" className="inline-flex items-center">
-                          <ExternalLink className="mr-2 h-4 w-4" />
-                          <span className="hidden sm:inline">Open site</span>
-                          <span className="sm:hidden">Open</span>
+                          <ExternalLink className="h-4 w-4" />
                         </a>
                       </Button>
                     )}
                   </div>
 
-                  <div className="mt-5 space-y-5">
+                  <div className="mt-6 space-y-6">
                     <div>
-                      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      <div className="mb-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Colors
                       </div>
                       {branding?.colors ? (
-                        <div className="mt-2 flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-2">
                           {Object.entries(branding.colors)
                             .slice(0, 18)
                             .map(([k, hex]) => (
                               <div
                                 key={k}
-                                className="h-6 w-6 rounded-md border border-border"
+                                className="group relative h-7 w-7 rounded-lg border border-border/50 shadow-sm transition-all hover:scale-110 hover:shadow-md hover:z-10"
                                 style={{ backgroundColor: hex }}
                                 title={`${k}: ${hex}`}
-                              />
+                              >
+                                <div className="absolute inset-0 rounded-lg ring-1 ring-inset ring-black/5" />
+                              </div>
                             ))}
                         </div>
                       ) : (
-                        <div className="mt-2 text-xs text-muted-foreground">No colors detected.</div>
+                        <div className="text-sm text-muted-foreground">No colors detected</div>
                       )}
                     </div>
 
                     <div>
-                      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      <div className="mb-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Fonts
                       </div>
                       {branding?.fonts?.length ? (
-                        <div className="mt-2 flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-2">
                           {branding.fonts
                             .map((f, idx) => f.family ?? `Font ${idx + 1}`)
                             .slice(0, 10)
                             .map((name) => (
-                              <span key={name} className="text-xs rounded-full border bg-muted/30 px-3 py-1">
+                              <span 
+                                key={name} 
+                                className="text-xs rounded-lg border border-border/50 bg-muted/30 px-3 py-1.5 font-medium text-foreground shadow-sm"
+                              >
                                 {name}
                               </span>
                             ))}
                         </div>
                       ) : (
-                        <div className="mt-2 text-xs text-muted-foreground">No fonts detected.</div>
+                        <div className="text-sm text-muted-foreground">No fonts detected</div>
                       )}
                     </div>
 
                     <div>
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                          Branding output
+                      <div className="mb-3 flex items-center justify-between gap-2">
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                          Branding Output
                         </div>
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-7 px-2"
+                          className="h-7 px-2.5 border-border/50 hover:bg-muted/50"
                           onClick={() => copyToClipboard("branding", brandingPretty)}
                           disabled={!brandingPretty}
                           title="Copy branding JSON"
                         >
-                          <Copy className="mr-2 h-3.5 w-3.5" />
+                          <Copy className="mr-1.5 h-3.5 w-3.5" />
                           {copiedKey === "branding" ? "Copied" : "Copy"}
                         </Button>
                       </div>
 
                       <Tabs defaultValue="preview" className="mt-2">
-                        <TabsList className="grid w-full grid-cols-3">
-                          <TabsTrigger value="preview" className="text-xs">
+                        <TabsList className="grid w-full grid-cols-3 bg-muted/30 border border-border/50">
+                          <TabsTrigger value="preview" className="text-xs data-[state=active]:bg-background">
                             Preview
                           </TabsTrigger>
-                          <TabsTrigger value="branding" className="text-xs">
+                          <TabsTrigger value="branding" className="text-xs data-[state=active]:bg-background">
                             Branding
                           </TabsTrigger>
-                          <TabsTrigger value="metadata" className="text-xs">
+                          <TabsTrigger value="metadata" className="text-xs data-[state=active]:bg-background">
                             Metadata
                           </TabsTrigger>
                         </TabsList>
 
-                        <TabsContent value="preview" className="mt-3">
-                          <div className="rounded-lg border bg-muted/20 p-4">
-                            <div className="text-xs font-medium text-muted-foreground mb-3">Favicon</div>
-                            <div className="h-24 w-full rounded-md border bg-background overflow-hidden flex items-center justify-center">
+                        <TabsContent value="preview" className="mt-4">
+                          <div className="rounded-lg border border-border/50 bg-gradient-to-br from-muted/30 to-muted/10 p-5">
+                            <div className="mb-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Favicon</div>
+                            <div className="h-28 w-full rounded-lg border border-border/50 bg-background overflow-hidden flex items-center justify-center shadow-sm">
                               {selectedFaviconUrl ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img
                                   src={selectedFaviconUrl}
                                   alt="favicon"
-                                  className="h-20 w-20 object-contain"
+                                  className="h-24 w-24 object-contain p-2"
                                   loading="lazy"
                                 />
                               ) : (
@@ -835,7 +1212,7 @@ export default function AssetsPage() {
                             </div>
                             {selectedFaviconUrl && (
                               <a
-                                className="mt-3 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                                className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline transition-colors"
                                 href={selectedFaviconUrl}
                                 target="_blank"
                                 rel="noreferrer"
@@ -846,47 +1223,47 @@ export default function AssetsPage() {
                           </div>
                         </TabsContent>
 
-                        <TabsContent value="branding">
-                          <div className="flex items-center justify-between gap-2">
+                        <TabsContent value="branding" className="mt-4">
+                          <div className="flex items-center justify-between gap-2 mb-3">
                             <div className="text-[11px] text-muted-foreground">
-                              Raw Firecrawl branding payload (stored in <span className="font-mono">brands.brandingJson</span>)
+                              Raw Firecrawl branding payload (stored in <span className="font-mono text-foreground">brands.brandingJson</span>)
                             </div>
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-7 px-2"
+                              className="h-7 px-2.5 border-border/50 hover:bg-muted/50"
                               onClick={() => copyToClipboard("branding-raw", brandingPretty)}
                               disabled={!brandingPretty}
                             >
-                              <Copy className="mr-2 h-3.5 w-3.5" />
+                              <Copy className="mr-1.5 h-3.5 w-3.5" />
                               {copiedKey === "branding-raw" ? "Copied" : "Copy"}
                             </Button>
                           </div>
-                          <ScrollArea className="mt-2 max-h-64 rounded-md border bg-muted/20 p-2">
-                            <pre className="text-[11px] leading-4 whitespace-pre-wrap break-words font-mono">
+                          <ScrollArea className="max-h-64 rounded-lg border border-border/50 bg-muted/20 p-3">
+                            <pre className="text-[11px] leading-relaxed whitespace-pre-wrap break-words font-mono text-foreground">
                               {brandingPretty || "No branding JSON found for this brand."}
                             </pre>
                           </ScrollArea>
                         </TabsContent>
 
-                        <TabsContent value="metadata">
-                          <div className="flex items-center justify-between gap-2">
+                        <TabsContent value="metadata" className="mt-4">
+                          <div className="flex items-center justify-between gap-2 mb-3">
                             <div className="text-[11px] text-muted-foreground">
-                              Firecrawl metadata payload (stored in <span className="font-mono">brands.metadataJson</span>)
+                              Firecrawl metadata payload (stored in <span className="font-mono text-foreground">brands.metadataJson</span>)
                             </div>
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-7 px-2"
+                              className="h-7 px-2.5 border-border/50 hover:bg-muted/50"
                               onClick={() => copyToClipboard("metadata-raw", metadataPretty)}
                               disabled={!metadataPretty}
                             >
-                              <Copy className="mr-2 h-3.5 w-3.5" />
+                              <Copy className="mr-1.5 h-3.5 w-3.5" />
                               {copiedKey === "metadata-raw" ? "Copied" : "Copy"}
                             </Button>
                           </div>
-                          <ScrollArea className="mt-2 max-h-64 rounded-md border bg-muted/20 p-2">
-                            <pre className="text-[11px] leading-4 whitespace-pre-wrap break-words font-mono">
+                          <ScrollArea className="max-h-64 rounded-lg border border-border/50 bg-muted/20 p-3">
+                            <pre className="text-[11px] leading-relaxed whitespace-pre-wrap break-words font-mono text-foreground">
                               {metadataPretty || "No metadata JSON found for this brand."}
                             </pre>
                           </ScrollArea>
@@ -894,11 +1271,11 @@ export default function AssetsPage() {
                       </Tabs>
                     </div>
 
-                    <div className="pt-1">
+                    <div className="pt-2 border-t border-border/50">
                       <Button
                         size="sm"
                         variant="outline"
-                        className="w-full"
+                        className="w-full border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
                         onClick={async () => {
                           if (!selectedBrand?._id) return;
                           if (!confirm("Remove this brand and all its assets?")) return;
@@ -917,39 +1294,156 @@ export default function AssetsPage() {
 
             {/* Right: Visual asset gallery */}
             <div className="min-w-0">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-sm font-semibold">Assets</div>
-                  <div className="text-xs text-muted-foreground">
+              <div className="mb-6 flex items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="text-lg font-bold">Assets</div>
+                  <div className="text-sm text-muted-foreground">
                     {assets ? `${assets.length} item${assets.length === 1 ? "" : "s"}` : "Loading…"}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" onClick={() => setImportOpen(true)} disabled={!canImportMore}>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setImportOpen(true)} 
+                    disabled={!canImportMore}
+                    className="border-border/50 hover:bg-muted/50"
+                  >
                     <Plus className="mr-2 h-4 w-4" />
                     New Brand
                   </Button>
-                  <Button onClick={() => setGenerateOpen(true)} disabled={!hasSelectedBrand}>
+                  <Button 
+                    onClick={() => setGenerateOpen(true)} 
+                    disabled={!hasSelectedBrand}
+                    className="shadow-sm hover:shadow transition-shadow"
+                  >
                     <Sparkles className="mr-2 h-4 w-4" />
-                    Create
+                    Create Asset
                   </Button>
                 </div>
               </div>
 
-              <div className="mt-4">
+              {/* Uploaded Product Images Section */}
+              {hasSelectedBrand && (
+                <div className="mb-8">
+                  <div className="flex items-center justify-between gap-4 mb-4">
+                    <div className="flex items-center gap-2">
+                      <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                      <span className="text-sm font-semibold">Product Images</span>
+                      <span className="text-xs text-muted-foreground">
+                        ({uploadedImages?.length ?? 0} uploaded)
+                      </span>
+                    </div>
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                        disabled={uploading}
+                      />
+                      <Button variant="outline" size="sm" asChild disabled={uploading}>
+                        <span>
+                          {uploading ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Upload className="mr-2 h-4 w-4" />
+                          )}
+                          {uploading ? "Uploading..." : "Upload"}
+                        </span>
+                      </Button>
+                    </label>
+                  </div>
+
+                  {uploadError && (
+                    <div className="mb-4 p-3 rounded-md bg-destructive/10 text-destructive text-sm">
+                      {uploadError}
+                    </div>
+                  )}
+
+                  {uploadedImages && uploadedImages.length > 0 ? (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
+                      {uploadedImages.map((img: any) => (
+                        <div
+                          key={img._id}
+                          className="group relative aspect-square rounded-lg overflow-hidden border border-border/50 bg-muted/30 hover:border-border transition-colors"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={img.url}
+                            alt={img.name}
+                            className="w-full h-full object-cover"
+                          />
+                          {/* Overlay with actions */}
+                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs text-white hover:bg-white/20"
+                              onClick={() => {
+                                navigator.clipboard.writeText(img.url || "");
+                                setCopiedKey(img._id);
+                                setTimeout(() => setCopiedKey(null), 2000);
+                              }}
+                            >
+                              {copiedKey === img._id ? (
+                                <Check className="h-3 w-3 mr-1" />
+                              ) : (
+                                <Copy className="h-3 w-3 mr-1" />
+                              )}
+                              Copy URL
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs text-red-300 hover:bg-red-500/20 hover:text-red-200"
+                              onClick={() => removeUploadedImage({ id: img._id })}
+                            >
+                              <Trash2 className="h-3 w-3 mr-1" />
+                              Delete
+                            </Button>
+                          </div>
+                          {/* Name tooltip */}
+                          <div className="absolute bottom-0 left-0 right-0 p-1.5 bg-gradient-to-t from-black/70 to-transparent">
+                            <p className="text-[10px] text-white/80 truncate">{img.name}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="border border-dashed border-border/50 rounded-lg p-6 text-center">
+                      <ImageIcon className="mx-auto h-8 w-8 text-muted-foreground/50" />
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        No product images uploaded yet
+                      </p>
+                      <p className="text-xs text-muted-foreground/70">
+                        Upload images to use them in e-commerce asset generation
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div>
                 {!assets ? (
-                  <div className="text-sm text-muted-foreground">Loading...</div>
+                  <Card className="border-border/50">
+                    <CardContent className="p-12 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">Loading assets...</span>
+                      </div>
+                    </CardContent>
+                  </Card>
                 ) : assets.length === 0 ? (
-                  <Card className="border-dashed">
-                    <CardContent className="p-10 text-center">
-                      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border bg-muted/30">
-                        <Sparkles className="h-5 w-5 text-muted-foreground" />
+                  <Card className="border-dashed border-2 border-border/50 bg-gradient-to-br from-muted/20 to-background">
+                    <CardContent className="p-12 text-center">
+                      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-border/50 bg-gradient-to-br from-primary/10 to-primary/5">
+                        <Sparkles className="h-8 w-8 text-primary" />
                       </div>
-                      <div className="mt-4 text-sm font-medium">No assets yet</div>
-                      <div className="mt-1 text-sm text-muted-foreground">
-                        Generate your first hero/banner/social asset to build your visual library.
+                      <div className="mt-6 text-base font-semibold">No assets yet</div>
+                      <div className="mt-2 text-sm text-muted-foreground max-w-md mx-auto">
+                        Generate your first hero, banner, or social asset to build your visual library.
                       </div>
-                      <div className="mt-6 flex flex-wrap justify-center gap-2">
+                      <div className="mt-8 flex flex-wrap justify-center gap-3">
                         <Button
                           variant={assetType === "hero" ? "default" : "outline"}
                           size="sm"
@@ -957,7 +1451,7 @@ export default function AssetsPage() {
                             setAssetType("hero");
                             setGenerateOpen(true);
                           }}
-                          className="min-w-[100px]"
+                          className="min-w-[110px] shadow-sm hover:shadow transition-shadow"
                         >
                           Hero
                         </Button>
@@ -968,7 +1462,7 @@ export default function AssetsPage() {
                             setAssetType("banner");
                             setGenerateOpen(true);
                           }}
-                          className="min-w-[100px]"
+                          className="min-w-[110px] shadow-sm hover:shadow transition-shadow"
                         >
                           Banner
                         </Button>
@@ -979,7 +1473,7 @@ export default function AssetsPage() {
                             setAssetType("social_post");
                             setGenerateOpen(true);
                           }}
-                          className="min-w-[100px]"
+                          className="min-w-[110px] shadow-sm hover:shadow transition-shadow"
                         >
                           Social Post
                         </Button>
@@ -987,22 +1481,22 @@ export default function AssetsPage() {
                     </CardContent>
                   </Card>
                 ) : (
-                  <div className="columns-1 gap-4 sm:columns-2 xl:columns-3">
+                  <div className="columns-1 gap-5 sm:columns-2 xl:columns-3">
                     {assets.map((a: any) => {
                       // Prefer imageUrl from query (Convex storage), fallback to legacy resultJson parsing
                       const imageUrl = a.imageUrl || getFirstImageUrlFromResultJson(a.resultJson);
                       const isBusy = a.status === "queued" || a.status === "running";
                       const isFailed = a.status === "failed";
                       return (
-                        <div key={a._id} className="mb-4 break-inside-avoid">
-                          <Card className="overflow-hidden">
+                        <div key={a._id} className="mb-5 break-inside-avoid">
+                          <Card className="overflow-hidden border-border/50 shadow-md hover:shadow-lg transition-all duration-300 group">
                             <div className="relative">
-                              <div className="absolute left-3 top-3 z-10 rounded-full bg-black/50 px-2.5 py-1 text-[11px] text-white">
-                                {a.type}
+                              <div className="absolute left-3 top-3 z-10 rounded-lg bg-black/70 backdrop-blur-sm px-3 py-1.5 text-[11px] font-semibold text-white shadow-lg">
+                                {a.type.replace(/_/g, " ")}
                               </div>
                               <button
                                 type="button"
-                                className="absolute right-2 top-2 z-10 rounded-full bg-black/40 p-2 text-white hover:bg-black/60"
+                                className="absolute right-3 top-3 z-10 rounded-lg bg-black/60 backdrop-blur-sm p-2 text-white hover:bg-black/80 transition-all shadow-lg opacity-0 group-hover:opacity-100"
                                 title="Remove asset"
                                 onClick={async () => {
                                   if (!confirm("Remove this asset?")) return;
@@ -1012,22 +1506,28 @@ export default function AssetsPage() {
                                 <Trash2 className="h-4 w-4" />
                               </button>
 
-                              <div className="bg-muted/30">
+                              <div className="bg-gradient-to-br from-muted/40 to-muted/20">
                                 {imageUrl ? (
-                                  <div className={getAssetAspectClass(a.type)}>
+                                  <div className="relative overflow-hidden">
                                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={imageUrl} alt={a.type} className="h-full w-full object-cover" />
+                                    <img 
+                                      src={imageUrl} 
+                                      alt={a.type} 
+                                      className="w-full h-auto transition-transform duration-500 group-hover:scale-[1.02]" 
+                                      style={{ display: "block" }}
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/5 to-transparent pointer-events-none" />
                                   </div>
                                 ) : (
                                   <div className="flex h-64 items-center justify-center">
-                                    <span className="text-xs text-muted-foreground">No preview</span>
+                                    <span className="text-sm text-muted-foreground">No preview</span>
                                   </div>
                                 )}
                               </div>
 
                               {isBusy && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-[1px]">
-                                  <div className="flex items-center gap-2 rounded-full bg-black/60 px-3 py-1.5 text-xs text-white">
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+                                  <div className="flex items-center gap-2 rounded-xl bg-black/80 px-4 py-2 text-sm font-medium text-white shadow-xl">
                                     <Loader2 className="h-4 w-4 animate-spin" />
                                     Generating…
                                   </div>
@@ -1035,16 +1535,16 @@ export default function AssetsPage() {
                               )}
                             </div>
 
-                            <CardContent className="p-3 space-y-2">
-                              <div className="flex items-center justify-end gap-2">
-                                <div className={`text-xs ${isFailed ? "text-destructive" : "text-muted-foreground"}`}>
+                            <CardContent className="p-4 space-y-3">
+                              <div className="flex items-center justify-between">
+                                <div className={`text-xs font-medium ${isFailed ? "text-destructive" : "text-muted-foreground"}`}>
                                   {a.status}
                                 </div>
                               </div>
 
                               {imageUrl && (
                                 <a
-                                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                                  className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline transition-colors"
                                   href={imageUrl}
                                   target="_blank"
                                   rel="noreferrer"
@@ -1053,7 +1553,13 @@ export default function AssetsPage() {
                                 </a>
                               )}
 
-                              {a.error && <p className="text-xs text-destructive line-clamp-3">{a.error}</p>}
+                              {a.error && (
+                                <TruncatedText
+                                  text={a.error}
+                                  maxLines={3}
+                                  textClassName="text-sm text-destructive"
+                                />
+                              )}
                             </CardContent>
                           </Card>
                         </div>

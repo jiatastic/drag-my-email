@@ -1,319 +1,478 @@
 import { v } from "convex/values";
-import { createGateway, generateText } from "ai";
 import { action, mutation, query } from "./_generated/server";
 import { auth } from "./auth";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { fal } from "@fal-ai/client";
 
 type AssetStatus = "queued" | "running" | "succeeded" | "failed";
 
-// Asset type specifications for agency-quality marketing assets
+// fal.ai model IDs
+const FAL_MODEL_TEXT = "fal-ai/flux-2-flex";
+const FAL_MODEL_EDIT = "fal-ai/flux-2-flex/edit";
+
+// flux-2-flex supported image_size presets
+// Docs: https://fal.ai/models/fal-ai/flux-2-flex/api
+type FalImageSizePreset = 
+  | "square_hd"      // 1024x1024 HD square
+  | "square"         // 512x512 standard square
+  | "portrait_4_3"   // 768x1024 portrait
+  | "portrait_16_9"  // 576x1024 tall portrait
+  | "landscape_4_3"  // 1024x768 landscape
+  | "landscape_16_9"; // 1024x576 widescreen
+
+// Custom image size for precise control
+interface FalCustomImageSize {
+  width: number;
+  height: number;
+}
+
+// fal.ai image_size can be preset or custom dimensions
+type FalImageSize = FalImageSizePreset | FalCustomImageSize;
+
+// fal.ai output format options
+type FalOutputFormat = "jpeg" | "png";
+
+// Asset type specifications for marketing assets
+// Using flux-2-flex's image_size presets or custom dimensions
 const ASSET_TYPE_SPECS: Record<string, {
   description: string;
-  aspectRatio: string;
-  targetPixels: string;
+  imageSize: FalImageSize;
   styleGuidelines: string[];
-  examples: string;
+  cameraSettings: {
+    angle: string;
+    distance: string;
+    lens: string;
+  };
 }> = {
   hero: {
-    description: "A stunning hero banner image for website headers, email headers, or landing pages",
-    aspectRatio: "16:9 (EXACT)",
-    targetPixels: "1600x900",
+    description: "Stunning hero banner for website headers, email headers, or landing pages",
+    imageSize: "landscape_16_9", // 1024x576 widescreen
     styleGuidelines: [
       "Bold, attention-grabbing composition with clear focal point",
-      "Leave some negative space for optional text overlay, but avoid big blank white panels or empty boxes",
       "Dramatic lighting with depth and dimension",
-      "Premium, editorial-quality photography aesthetic",
-      "Subtle gradient overlays that complement the brand palette",
+      "Premium, editorial-quality aesthetic",
     ],
-    examples: "Think Apple product launches, Stripe's gradient backgrounds, Airbnb's lifestyle imagery",
+    cameraSettings: {
+      angle: "eye level",
+      distance: "wide shot",
+      lens: "35mm",
+    },
   },
   banner: {
-    description: "A versatile banner for ads, email campaigns, or promotional sections",
-    // Intercom-style email header banner: wide and short.
-    aspectRatio: "3:1 (EXACT) — ideal for the top of marketing emails",
-    // Generate at 2x the typical email display size (600x200) for crisp rendering on retina screens.
-    targetPixels: "1200x400",
+    description: "Versatile banner for ads, email campaigns, or promotional sections",
+    imageSize: { width: 1200, height: 400 }, // Custom 3:1 for email banners
     styleGuidelines: [
-      "Eye-catching but not overwhelming - designed to complement content",
-      "Clear visual hierarchy with brand colors as accents",
-      "Professional and polished, suitable for B2B and B2C",
-      "Subtle patterns or abstract elements that reinforce brand identity",
-      "Works well at multiple sizes without losing impact",
+      "Eye-catching but not overwhelming",
+      "Clear visual hierarchy with brand colors",
+      "Professional and polished finish",
     ],
-    examples: "Think LinkedIn sponsored content, Mailchimp campaign headers, Notion's clean banners",
+    cameraSettings: {
+      angle: "eye level",
+      distance: "medium shot",
+      lens: "50mm",
+    },
   },
   social_post: {
-    description: "A scroll-stopping social media post image optimized for engagement",
-    aspectRatio: "1:1 (EXACT)",
-    targetPixels: "1024x1024",
+    description: "Scroll-stopping social media post image optimized for engagement",
+    imageSize: "square_hd", // 1024x1024 HD square
     styleGuidelines: [
-      "Instantly recognizable brand presence - colors and style should scream the brand",
-      "Bold, high-contrast visuals that pop on mobile feeds",
-      "Modern, trendy aesthetic that feels current and relevant",
-      "Room for optional text overlay (keep any text large and readable)",
-      "Thumb-stopping quality - must stand out in a crowded feed",
+      "Instantly recognizable brand presence",
+      "Bold, high-contrast visuals that pop on mobile",
+      "Modern, trendy aesthetic",
     ],
-    examples: "Think Figma's vibrant posts, Notion's minimalist aesthetic, Vercel's sleek gradients",
+    cameraSettings: {
+      angle: "eye level",
+      distance: "medium shot",
+      lens: "50mm",
+    },
   },
   logo_variant: {
-    description: "A creative brand mark or logo-inspired graphic element",
-    aspectRatio: "1:1 (EXACT)",
-    targetPixels: "1024x1024",
+    description: "Creative brand mark or logo-inspired graphic element",
+    imageSize: "square_hd", // 1024x1024 HD square
     styleGuidelines: [
-      "Abstract interpretation of brand identity, not a literal logo",
-      "Geometric patterns or shapes inspired by brand aesthetics",
-      "Versatile design that works on dark and light backgrounds",
-      "Premium, sophisticated execution with attention to detail",
-      "Suitable for app icons, profile pictures, or brand marks",
+      "Abstract interpretation of brand identity",
+      "Geometric patterns inspired by brand aesthetics",
+      "Versatile design for dark and light backgrounds",
     ],
-    examples: "Think Stripe's gradient orbs, Linear's clean marks, Vercel's triangular motifs",
+    cameraSettings: {
+      angle: "high angle",
+      distance: "close-up",
+      lens: "85mm",
+    },
+  },
+  product_detail: {
+    description: "Professional e-commerce product detail page poster with bilingual copy, Apple minimalist style",
+    imageSize: "portrait_16_9", // 576x1024 tall portrait (9:16)
+    styleGuidelines: [
+      "Premium product photography with clean studio background",
+      "Bilingual typography (Chinese/English) with glass morphism or 3D embossed text effects",
+      "Minimalist layout with generous whitespace, warm and pure background",
+      "Professional product presentation with clear visual hierarchy",
+    ],
+    cameraSettings: {
+      angle: "eye level",
+      distance: "medium shot",
+      lens: "85mm",
+    },
+  },
+  product_showcase: {
+    description: "E-commerce product showcase poster with color swatches, size guide, or feature highlights",
+    imageSize: "portrait_16_9", // 576x1024 tall portrait (9:16)
+    styleGuidelines: [
+      "Clean product presentation with color/material inspiration boards",
+      "Minimalist grid layouts for size guides or feature comparisons",
+      "Warm, clean backgrounds with flat, high-end aesthetic",
+      "Professional product photography with lifestyle context",
+    ],
+    cameraSettings: {
+      angle: "eye level",
+      distance: "medium shot",
+      lens: "50mm",
+    },
   },
 };
 
-function getExactAspectRatio(type: string): "16:9" | "3:1" | "1:1" {
-  if (type === "banner") return "3:1";
-  if (type === "social_post") return "1:1";
-  if (type === "logo_variant") return "1:1";
-  return "16:9";
-}
-
-function readPngDimensions(bytes: Uint8Array): { width: number; height: number } | null {
-  // PNG signature: 89 50 4E 47 0D 0A 1A 0A
-  if (bytes.length < 24) return null;
-  if (
-    bytes[0] !== 0x89 ||
-    bytes[1] !== 0x50 ||
-    bytes[2] !== 0x4e ||
-    bytes[3] !== 0x47 ||
-    bytes[4] !== 0x0d ||
-    bytes[5] !== 0x0a ||
-    bytes[6] !== 0x1a ||
-    bytes[7] !== 0x0a
-  ) {
-    return null;
-  }
-
-  // IHDR chunk starts at offset 8, width/height are big-endian at offset 16/20.
-  const width =
-    (bytes[16] << 24) | (bytes[17] << 16) | (bytes[18] << 8) | bytes[19];
-  const height =
-    (bytes[20] << 24) | (bytes[21] << 16) | (bytes[22] << 8) | bytes[23];
-
-  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null;
-  return { width, height };
-}
-
-function parseTargetPixels(targetPixels: string): { width: number; height: number } | null {
-  const m = targetPixels.match(/^(\d+)x(\d+)$/);
-  if (!m) return null;
-  const width = Number.parseInt(m[1] || "", 10);
-  const height = Number.parseInt(m[2] || "", 10);
-  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null;
-  return { width, height };
-}
-
-function buildGeminiStrictPrompt(prompt: string, spec: { targetPixels: string }, aspectRatio: string, attempt: number): string {
-  const extra =
-    attempt <= 1
-      ? ""
-      : [
-          "",
-          "If you did not comply with the exact canvas size last time, fix it now.",
-          "Do not upscale/downscale after rendering—render the canvas at the exact size from the start.",
-          "Return ONLY the image. No text.",
-        ].join("\n");
-
-  return [
-    prompt,
-    "",
-    "## OUTPUT CONSTRAINTS (STRICT)",
-    `- Output MUST be a single image at EXACTLY ${spec.targetPixels} pixels.`,
-    `- Aspect ratio MUST be EXACTLY ${aspectRatio}.`,
-    "- No borders, no padding, no frames that change the canvas size.",
-    "- Keep the whole composition inside the canvas (no cropping at the edges).",
-    extra,
-  ]
-    .filter(Boolean)
-    .join("\n");
-}
-
-// Professional styling presets. These blocks intentionally use concrete visual attributes
-// (lens, focal length, lighting, composition) to stabilize output quality.
-const STYLE_PRESETS: Record<
-  string,
-  { label: string; block: string; brandLockBias?: "strict" | "balanced" }
-> = {
+// Style presets that map to JSON prompt configurations
+const STYLE_PRESETS: Record<string, {
+  label: string;
+  style: string;
+  lighting: string;
+  mood: string;
+  composition: string;
+}> = {
   brand_strict: {
     label: "Brand strict",
-    brandLockBias: "strict",
-    block: [
-      "STYLE PRESET: Brand strict (clean, premium, brand-consistent)",
-      "Lighting: soft studio light, controlled highlights, subtle shadows, high clarity",
-      "Lens: 35mm–50mm, crisp focus, minimal distortion",
-      "Composition: strong hierarchy, intentional negative space, centered focal subject",
-      "Finish: premium, modern, high-end SaaS marketing quality, no clutter",
-    ].join("\n"),
+    style: "Clean premium marketing photography with controlled studio lighting",
+    lighting: "Soft studio lighting with controlled highlights and gentle shadows",
+    mood: "Professional, trustworthy, premium",
+    composition: "rule of thirds",
   },
   minimal_modern: {
     label: "Minimal modern",
-    brandLockBias: "strict",
-    block: [
-      "STYLE PRESET: Minimal modern (whitespace, editorial layout)",
-      "Lighting: bright, even, soft shadows, clean background",
-      "Lens: 50mm, sharp focus, minimal noise",
-      "Composition: lots of whitespace, grid alignment, minimal elements, elegant geometry",
-      "Finish: minimalist, crisp, modern, premium, typography-friendly",
-    ].join("\n"),
+    style: "Minimalist modern design with generous whitespace and editorial layout",
+    lighting: "Bright even lighting with soft diffusion",
+    mood: "Clean, sophisticated, elegant",
+    composition: "centered",
   },
   editorial_photo: {
     label: "Editorial photo",
-    brandLockBias: "balanced",
-    block: [
-      "STYLE PRESET: Editorial photo (realistic, magazine-grade)",
-      "Lighting: natural light, soft diffusion, gentle contrast, realistic reflections",
-      "Lens: 85mm portrait lens, shallow depth of field, bokeh",
-      "Composition: cinematic framing, subject separation, authentic texture and materials",
-      "Finish: premium editorial photography, no plastic CGI look",
-    ].join("\n"),
+    style: "Editorial photography with natural lighting and magazine-quality composition",
+    lighting: "Natural lighting with soft diffusion and gentle contrast",
+    mood: "Authentic, refined, aspirational",
+    composition: "rule of thirds",
   },
   product_hero: {
     label: "Product hero",
-    brandLockBias: "strict",
-    block: [
-      "STYLE PRESET: Product hero (studio product marketing)",
-      "Lighting: controlled studio lighting, rim light, clean highlights, premium reflections",
-      "Lens: 60–105mm macro/product lens, sharp detail, precise focus",
-      "Composition: product centered, strong silhouette, clean backdrop, room for headline",
-      "Finish: Apple-like product hero, ultra-clean, high polish",
-    ].join("\n"),
+    style: "Studio product photography with premium reflections and Apple-style polish",
+    lighting: "Controlled lighting with rim light and clean highlights",
+    mood: "Premium, desirable, high-end",
+    composition: "centered",
   },
   gradient_abstract: {
     label: "Gradient abstract",
-    brandLockBias: "strict",
-    block: [
-      "STYLE PRESET: Gradient abstract (modern SaaS gradients + shapes)",
-      "Lighting: soft glow, subtle bloom, smooth gradients, depth via shadows",
-      "Lens: 35mm, clean perspective",
-      "Composition: abstract shapes/orbs, layered depth, lots of negative space for text",
-      "Finish: Stripe/Vercel-like gradients, premium, modern, not noisy",
-    ].join("\n"),
+    style: "Modern SaaS gradient abstract with soft glowing auras and smooth transitions",
+    lighting: "Ambient glow with subtle bloom effects",
+    mood: "Innovative, modern, tech-forward",
+    composition: "dynamic diagonal",
   },
   cinematic_3d: {
     label: "Cinematic 3D",
-    brandLockBias: "balanced",
-    block: [
-      "STYLE PRESET: Cinematic 3D (volumetric light, premium materials)",
-      "Lighting: volumetric lighting, soft haze, dramatic contrast, rim light",
-      "Lens: 24–35mm wide, strong depth, controlled perspective",
-      "Composition: cinematic framing, depth layers, bold focal point, negative space",
-      "Finish: high-end 3D render, realistic materials, no cheap CGI",
-    ].join("\n"),
+    style: "Cinematic 3D visualization with volumetric lighting and premium materials",
+    lighting: "Volumetric lighting with atmospheric haze and rim lighting",
+    mood: "Epic, dramatic, immersive",
+    composition: "dynamic diagonal",
   },
 };
 
-function buildPrompt(params: {
+// Build JSON structured prompt for FLUX.2 [pro]
+// This format provides precise control over complex generations
+interface JsonPrompt {
+  scene: string;
+  subjects: Array<{
+    type: string;
+    description: string;
+    position: "foreground" | "midground" | "background";
+  }>;
+  style: string;
+  color_palette: string[];
+  lighting: string;
+  mood: string;
+  composition: string;
+  camera: {
+    angle: string;
+    distance: string;
+    lens: string;
+  };
+}
+
+function buildJsonPrompt(params: {
   brandName: string;
   type: string;
   stylePreset?: string;
-  colors?: Record<string, unknown>;
-  fonts?: Array<{ family?: string }>;
+  brandColors?: Record<string, string>;
   summary?: string;
   promptOverrides?: string;
+  productImageUrls?: string[]; // Multiple product images for reference
+  ecommerceMode?: "simple" | "detailed";
+  productFeatures?: string[];
 }): string {
   const spec = ASSET_TYPE_SPECS[params.type] || ASSET_TYPE_SPECS.hero;
   const preset = params.stylePreset ? STYLE_PRESETS[params.stylePreset] : STYLE_PRESETS.brand_strict;
-  
-  // Extract and format brand colors with semantic meaning
-  const colorEntries = Object.entries(params.colors ?? {});
-  const primaryColors = colorEntries.slice(0, 3);
-  const accentColors = colorEntries.slice(3, 6);
-  
-  const colorPalette = primaryColors.length > 0
-    ? `PRIMARY BRAND COLORS (use these prominently):\n${primaryColors.map(([name, hex]) => `  • ${name}: ${hex}`).join("\n")}`
-    : "";
-  
-  const accentPalette = accentColors.length > 0
-    ? `ACCENT COLORS (use for highlights and details):\n${accentColors.map(([name, hex]) => `  • ${name}: ${hex}`).join("\n")}`
-    : "";
 
-  const fontFamilies = (params.fonts ?? [])
-    .map((f) => f?.family)
-    .filter(Boolean)
-    .slice(0, 3);
+  // Only use brand colors for brand-focused presets (let creative modes have full freedom)
+  const brandFocusedPresets = ["brand_strict", "product_hero", "minimal_modern"];
+  const shouldUseBrandColors = brandFocusedPresets.includes(params.stylePreset || "brand_strict");
 
-  const fontSection = fontFamilies.length > 0
-    ? `TYPOGRAPHY STYLE: Inspired by ${fontFamilies.join(", ")} - ${
-        fontFamilies.some(f => /mono|code/i.test(f || "")) ? "technical, developer-focused" :
-        fontFamilies.some(f => /serif/i.test(f || "")) ? "elegant, editorial, sophisticated" :
-        fontFamilies.some(f => /display|black|bold/i.test(f || "")) ? "bold, impactful, modern" :
-        "clean, modern, professional"
-      }`
-    : "";
+  const colorPalette: string[] = [];
+  if (shouldUseBrandColors && params.brandColors) {
+    // Add "hex" prefix for FLUX.2 color recognition
+    Object.entries(params.brandColors).slice(0, 5).forEach(([_, hex]) => {
+      if (typeof hex === "string" && hex.startsWith("#")) {
+        colorPalette.push(`hex ${hex}`);
+      }
+    });
+  }
+  // Creative presets (gradient_abstract, cinematic_3d, editorial_photo) have no color constraints
 
-  // Build the prompt. IMPORTANT: Client requirements come first to maximize compliance.
-  const sections: string[] = [];
-
-  if (params.promptOverrides?.trim()) {
-    sections.push(
-      "## ⚡ CLIENT REQUIREMENTS (HIGHEST PRIORITY - FOLLOW EXACTLY) ⚡",
-      params.promptOverrides.trim(),
-      "",
-      "These requirements override everything below. If there is a conflict, follow this section.",
-      ""
-    );
+  // Build scene description
+  let sceneDescription = spec.description;
+  if (params.summary) {
+    const shortSummary = params.summary.length > 100 
+      ? params.summary.slice(0, 100) + "..." 
+      : params.summary;
+    sceneDescription += `. Brand context: ${shortSummary}`;
   }
 
-  sections.push(
-    `# CREATIVE BRIEF: ${params.brandName} Marketing Asset`,
-    "",
-    "## STYLE PRESET",
-    preset?.block || STYLE_PRESETS.brand_strict.block,
-    "",
-    "## THE BRAND",
-    `Brand: ${params.brandName}`,
-    params.summary ? `Brand story: ${params.summary}` : "",
-    "",
-    "## BRAND LOCK (STRICT)",
-    colorPalette,
-    accentPalette,
-    fontSection,
-    "",
-    "Color usage rules:",
-    preset?.brandLockBias === "balanced"
-      ? "• Keep brand colors prominent, but you may use subtle neutral tones for realism."
-      : "• Brand colors must dominate the palette (aim for 60–80% of visible color).",
-    "• Avoid introducing unrelated saturated colors unless required by client requirements.",
-    "• Keep backgrounds clean and on-brand; avoid busy patterns unless requested.",
-    "",
-    "## ASSET SPECIFICATIONS",
-    `Asset type: ${params.type.toUpperCase()}`,
-    `Description: ${spec.description}`,
-    `Aspect ratio: ${spec.aspectRatio}`,
-    `Target pixel size: ${spec.targetPixels} (EXACT)`,
-    "",
-    "Output constraints (STRICT):",
-    `• Render at ${spec.targetPixels} pixels.`,
-    `• Aspect ratio must be EXACTLY ${spec.aspectRatio}. Do not deviate.`,
-    "• Do not add extra borders or frames unless requested.",
-    "• Keep safe margins: reserve subtle breathing room for optional headline/CTA (no large blank white rectangles).",
-    "",
-    "## CREATIVE GUIDELINES",
-    ...spec.styleGuidelines.map((g, i) => `${i + 1}. ${g}`),
-    "",
-    `Reference quality: ${spec.examples}`,
-    "",
-    "## AVOID (NEGATIVE CONSTRAINTS)",
-    "• Generic stock photo look",
-    "• Low-res, blurry, noisy, artifacts, banding",
-    "• Random extra text, watermarks, logos (unless client requirement asks for text)",
-    "• Cluttered composition; keep a clear focal point",
-    "",
-    "## FINAL INSTRUCTION",
-    `Create a stunning ${params.type} image for ${params.brandName}. Follow client requirements first, then apply the preset and brand lock.`
-  );
+  // Build subject based on asset type
+  const subjects: JsonPrompt["subjects"] = [];
+  
+  if (params.type === "product_detail" || params.type === "product_showcase") {
+    // E-commerce product posters
+    // Note: Product image reference will be added in the final prompt construction
+    // Default to English unless specifically requested
+    
+    if (params.type === "product_detail") {
+      subjects.push({
+        type: "Product detail poster",
+        description: `Professional 9:16 vertical premium product detail poster for ${params.brandName}. Clean Apple minimalist style with elegant typography. Glass morphism or 3D embossed text effects. Product photography with warm, pure background, generous whitespace. Professional studio quality with clear visual hierarchy.`,
+        position: "foreground",
+      });
+    } else if (params.type === "product_showcase") {
+      subjects.push({
+        type: "Product showcase poster",
+        description: `Professional 9:16 vertical product showcase poster for ${params.brandName}. Clean minimalist layout with color swatches, size guide, or feature highlights. Warm, clean background with flat, high-end aesthetic. Elegant typography with professional product presentation.`,
+        position: "foreground",
+      });
+    }
+  } else if (params.type === "hero") {
+    subjects.push({
+      type: "Marketing visual",
+      description: `Premium ${params.brandName} brand imagery with professional finish`,
+      position: "midground",
+    });
+  } else if (params.type === "banner") {
+    subjects.push({
+      type: "Banner graphic",
+      description: `Clean promotional banner for ${params.brandName} with brand colors`,
+      position: "midground",
+    });
+  } else if (params.type === "social_post") {
+    subjects.push({
+      type: "Social media content",
+      description: `Eye-catching ${params.brandName} branded content for social feeds`,
+      position: "foreground",
+    });
+  } else if (params.type === "logo_variant") {
+    subjects.push({
+      type: "Abstract brand element",
+      description: `Geometric brand mark inspired by ${params.brandName} identity`,
+      position: "foreground",
+    });
+  }
 
-  return sections.filter(Boolean).join("\n");
+  // Enhanced style for e-commerce mode
+  let finalStyle = preset.style;
+  let finalLighting = preset.lighting;
+  let finalMood = preset.mood;
+  
+  if (params.type === "product_detail" || params.type === "product_showcase") {
+    finalStyle = `Professional e-commerce product photography, Apple minimalist style, clean studio background, premium product presentation, elegant typography with glass morphism or 3D embossed text effects, generous whitespace, warm and pure color palette`;
+    finalLighting = `Professional studio soft lighting, controlled highlights, gentle shadows, natural diffusion, high-end fashion photography quality, realistic texture rendering`;
+    finalMood = `Premium, trustworthy, sophisticated, clean, professional, high-end retail aesthetic`;
+    
+    // Add product features if provided
+    if (params.productFeatures && params.productFeatures.length > 0) {
+      const featuresText = params.productFeatures.slice(0, 5).join(", ");
+      sceneDescription += `. Key product features: ${featuresText}`;
+    }
+  }
+
+  // Construct the JSON prompt
+  const jsonPrompt: JsonPrompt = {
+    scene: sceneDescription,
+    subjects,
+    style: finalStyle,
+    color_palette: colorPalette,
+    lighting: finalLighting,
+    mood: finalMood,
+    composition: preset.composition,
+    camera: spec.cameraSettings,
+  };
+
+  // Build final prompt
+  let finalPrompt: string;
+  
+  if (params.type === "product_detail" || params.type === "product_showcase") {
+    // For e-commerce, use detailed professional prompt format
+    const jsonStr = JSON.stringify(jsonPrompt, null, 2);
+    
+    if (params.ecommerceMode === "detailed") {
+      // Detailed mode: Full professional prompt with all specifications
+      // Note: Image reference is passed separately via image_url parameter, not in prompt
+      
+      finalPrompt = `Professional 9:16 vertical premium e-commerce product poster for ${params.brandName}.
+
+Technical specifications:
+- Format: 9:16 vertical portrait, high resolution
+- Style: Apple minimalist, clean studio photography
+- Background: Warm, pure color (cream, light champagne, or soft gradient), generous whitespace
+- Typography: Elegant, glass morphism or 3D embossed text effects, unified style but varied layouts
+- Product presentation: Professional studio quality, clear visual hierarchy, premium finish
+- Camera: ${spec.cameraSettings.lens} lens, ${spec.cameraSettings.angle} angle, ${spec.cameraSettings.distance}
+- Lighting: ${finalLighting}
+- Mood: ${finalMood}
+
+Detailed JSON specification:
+${jsonStr}
+
+Negative prompt: cluttered, busy, multiple patterns, shadows, watermark, messy text, low quality, blurry, plain face, AI-generated artifacts, distorted text, poor typography, inconsistent style, Chinese characters, Asian text`;
+    } else {
+      // Simple mode: Concise prompt with JSON structure
+      finalPrompt = `9:16 vertical premium product poster, Apple minimalist style, elegant typography, clean studio background, warm pure colors, generous whitespace. Specification: ${jsonStr}`;
+    }
+  } else {
+    // Standard mode: JSON structure
+    finalPrompt = JSON.stringify(jsonPrompt, null, 2);
+  }
+  
+  // If user provides custom prompt overrides, prepend them
+  if (params.promptOverrides?.trim()) {
+    finalPrompt = `${params.promptOverrides.trim()}\n\n${finalPrompt}`;
+  }
+
+  return finalPrompt;
+}
+
+// Call fal.ai API using official client
+// Uses flux-2-flex for text-to-image, flux-2-flex/edit for image-to-image
+async function callFalAPI(params: {
+  prompt: string;
+  imageSize: FalImageSize;
+  seed?: number;
+  outputFormat?: FalOutputFormat;
+  apiKey: string;
+  enablePromptExpansion?: boolean;
+  guidanceScale?: number;
+  numInferenceSteps?: number;
+  imageUrls?: string[]; // Reference image URLs for image-to-image generation (edit mode)
+}): Promise<{ 
+  imageUrl: string; 
+  width: number; 
+  height: number; 
+  seed: number;
+  contentType: string;
+}> {
+  // Configure fal client with API key
+  fal.config({
+    credentials: params.apiKey,
+  });
+
+  // Determine which model to use based on whether images are provided
+  const isEditMode = params.imageUrls && params.imageUrls.length > 0;
+  const modelId = isEditMode ? FAL_MODEL_EDIT : FAL_MODEL_TEXT;
+
+  console.log(`[fal.ai] Using model: ${modelId}, isEditMode: ${isEditMode}`);
+
+  // Build input payload
+  const input: Record<string, unknown> = {
+    prompt: params.prompt,
+    image_size: params.imageSize,
+    output_format: params.outputFormat || "jpeg",
+    enable_safety_checker: true,
+    safety_tolerance: "2",
+    enable_prompt_expansion: params.enablePromptExpansion ?? true,
+    guidance_scale: params.guidanceScale ?? 3.5,
+    num_inference_steps: params.numInferenceSteps ?? 28,
+  };
+
+  // Edit mode uses image_urls array
+  if (isEditMode) {
+    input.image_urls = params.imageUrls;
+  }
+
+  // Add seed for reproducibility if provided
+  if (params.seed !== undefined && params.seed >= 0) {
+    input.seed = params.seed;
+  }
+
+  try {
+    // Use fal.subscribe which handles queue submission, polling, and result fetching
+    console.log(`[fal.ai] Submitting request...`);
+    
+    const result = await fal.subscribe(modelId, {
+      input: input as any, // Dynamic input based on model
+      logs: true,
+      onQueueUpdate: (update) => {
+        if (update.status === "IN_PROGRESS") {
+          console.log(`[fal.ai] Status: IN_PROGRESS`);
+        } else if (update.status === "IN_QUEUE") {
+          console.log(`[fal.ai] Status: IN_QUEUE, position: ${(update as any).queue_position ?? "unknown"}`);
+        }
+      },
+    });
+
+    console.log(`[fal.ai] Generation completed!`);
+    console.log(`[fal.ai] Result keys: ${Object.keys(result.data || {}).join(", ")}`);
+
+    // Extract image from result
+    const data = result.data as any;
+    const image = data?.images?.[0] || data?.image;
+
+    if (!image?.url) {
+      console.log(`[fal.ai] Full result: ${JSON.stringify(data).slice(0, 1000)}`);
+      throw new Error(`No image URL in fal.ai response. Keys: ${Object.keys(data || {}).join(", ")}`);
+    }
+
+    console.log(`[fal.ai] Image URL received: ${image.url.slice(0, 100)}...`);
+
+    return {
+      imageUrl: image.url,
+      width: image.width || 1024,
+      height: image.height || 1024,
+      seed: data.seed || 0,
+      contentType: image.content_type || "image/png",
+    };
+  } catch (error: any) {
+    console.log(`[fal.ai] Error: ${error.message}`);
+    throw new Error(`fal.ai generation failed: ${error.message}`);
+  }
+}
+
+// Download image and return as bytes
+async function downloadImage(url: string): Promise<{ bytes: Uint8Array; mediaType: string }> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to download image: ${response.status}`);
+  }
+
+  const contentType = response.headers.get("content-type") || "image/png";
+  const arrayBuffer = await response.arrayBuffer();
+  
+  return {
+    bytes: new Uint8Array(arrayBuffer),
+    mediaType: contentType,
+  };
 }
 
 export const listByBrand = query({
@@ -450,6 +609,10 @@ export const generate = action({
     type: v.string(),
     stylePreset: v.optional(v.string()),
     promptOverrides: v.optional(v.string()),
+    // E-commerce specific parameters
+    productImageUrls: v.optional(v.array(v.string())), // Multiple product image URLs for reference
+    ecommerceMode: v.optional(v.union(v.literal("simple"), v.literal("detailed"))), // Simple or detailed prompt mode
+    productFeatures: v.optional(v.array(v.string())), // Product feature list for e-commerce posters
   },
   handler: async (ctx, args): Promise<{ assetId: Id<"marketingAssets">; imageUrl?: string }> => {
     const userId = await auth.getUserId(ctx as any);
@@ -458,24 +621,36 @@ export const generate = action({
     const brand = await ctx.runQuery(api.brands.get, { id: args.brandId });
     if (!brand) throw new Error("Brand not found or not authorized");
 
-    let branding: any = null;
-    try {
-      branding = JSON.parse(brand.brandingJson);
-    } catch {
-      // ignore; keep null
+    // Get asset specs
+    const spec = ASSET_TYPE_SPECS[args.type] || ASSET_TYPE_SPECS.hero;
+
+    // Extract brand colors from branding data
+    const brandColors: Record<string, string> = {};
+    if (brand.brandingJson) {
+      try {
+        const branding = JSON.parse(brand.brandingJson);
+        if (branding?.colors && typeof branding.colors === "object") {
+          Object.assign(brandColors, branding.colors);
+        }
+      } catch {
+        // Ignore JSON parse errors
+      }
     }
 
-    const prompt = buildPrompt({
+    // Build JSON structured prompt for FLUX.2 [pro]
+    const prompt = buildJsonPrompt({
       brandName: brand.name,
       type: args.type,
       stylePreset: args.stylePreset,
-      colors: branding?.colors,
-      fonts: branding?.fonts,
+      brandColors,
       summary: brand.summary,
       promptOverrides: args.promptOverrides,
+      productImageUrls: args.productImageUrls,
+      ecommerceMode: args.ecommerceMode || (args.type === "product_detail" || args.type === "product_showcase" ? "detailed" : undefined),
+      productFeatures: args.productFeatures,
     });
 
-    const provider = "ai-gateway";
+    const provider = "fal.ai/flux-2-flex";
     const assetId = await ctx.runMutation(api.marketingAssets.create, {
       brandId: args.brandId,
       type: args.type,
@@ -484,19 +659,16 @@ export const generate = action({
       status: "queued",
     });
 
-    const gatewayKey = process.env.AI_GATEWAY_API_KEY;
-    if (!gatewayKey) {
+    // Check for fal.ai API key
+    const falApiKey = process.env.FAL_KEY;
+    if (!falApiKey) {
       await ctx.runMutation(api.marketingAssets.updateStatus, {
         id: assetId,
         status: "failed",
-        error: "Missing AI_GATEWAY_API_KEY environment variable",
+        error: "Missing FAL_KEY environment variable. Get your key at https://fal.ai/dashboard/keys",
       });
-      throw new Error("Missing AI_GATEWAY_API_KEY environment variable");
+      throw new Error("Missing FAL_KEY environment variable");
     }
-
-    // Per Context7 docs, Gemini 2.5 Flash Image should be used via `generateText()` and `result.files`.
-    // We intentionally lock this to Gemini to satisfy product requirements.
-    const model = "google/gemini-2.5-flash-image";
 
     await ctx.runMutation(api.marketingAssets.updateStatus, {
       id: assetId,
@@ -504,70 +676,48 @@ export const generate = action({
     });
 
     try {
-      // Use the official AI SDK gateway provider to avoid guessing base URLs / request shapes.
-      const gateway = createGateway({ apiKey: gatewayKey });
-      const spec = ASSET_TYPE_SPECS[args.type] || ASSET_TYPE_SPECS.hero;
-      const aspectRatio = getExactAspectRatio(args.type);
+      // Call fal.ai API
+      // Use flux-2-flex/edit if product image is provided, otherwise flux-2-flex
+      const falResult = await callFalAPI({
+        prompt,
+        imageSize: spec.imageSize,
+        outputFormat: "jpeg", // Default per API docs
+        apiKey: falApiKey,
+        enablePromptExpansion: true,
+        guidanceScale: 3.5, // Default per API docs
+        numInferenceSteps: 28, // Default per API docs
+        imageUrls: args.productImageUrls && args.productImageUrls.length > 0 ? args.productImageUrls : undefined,
+      });
 
-      let imageBytes: Uint8Array | undefined;
-      let mediaType = "image/png";
-      let width: number | undefined;
-      let height: number | undefined;
-      let dimensionsMatch: boolean | undefined;
-
-      const target = parseTargetPixels(spec.targetPixels);
-
-      // Retry a few times because Gemini may occasionally ignore strict pixel constraints.
-      const maxAttempts = 3;
-      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        const result = await generateText({
-          model: gateway(model),
-          prompt: buildGeminiStrictPrompt(prompt, spec, aspectRatio, attempt),
-        });
-
-        const firstImageFile = result.files?.find((f) => f.mediaType?.startsWith("image/"));
-        if (!firstImageFile) continue;
-
-        mediaType = firstImageFile.mediaType || "image/png";
-        imageBytes = (firstImageFile as any).uint8Array as Uint8Array | undefined;
-
-        if (!imageBytes || imageBytes.length === 0) continue;
-
-        const dims = mediaType.includes("png") ? readPngDimensions(imageBytes) : null;
-        width = dims?.width;
-        height = dims?.height;
-        dimensionsMatch =
-          !!target && !!dims ? dims.width === target.width && dims.height === target.height : undefined;
-
-        // If we can measure and it matches, stop early.
-        if (dimensionsMatch !== false) break;
-      }
+      // Download the image and store in Convex storage
+      const { bytes: imageBytes, mediaType } = await downloadImage(falResult.imageUrl);
 
       let imageUrl: string | undefined;
       let storageId: Id<"_storage"> | undefined;
 
       if (imageBytes && imageBytes.length > 0) {
-        // Upload to Convex file storage to avoid the 1 MiB document limit
-        // Store raw bytes. Use ArrayBuffer to satisfy TS BlobPart typing (avoid ArrayBufferLike/SharedArrayBuffer mismatch).
+        // Upload to Convex file storage
         const imageArrayBuffer = imageBytes.slice().buffer;
         storageId = await ctx.storage.store(new Blob([imageArrayBuffer], { type: mediaType }));
         // Get the public URL for immediate use
         imageUrl = await ctx.storage.getUrl(storageId) ?? undefined;
       }
 
-      // Store only lightweight metadata (no base64 blob)
+      // Store metadata
+      const usedEditMode = args.productImageUrls && args.productImageUrls.length > 0;
       const resultMeta = {
-        model,
-        generator: "generateText",
+        provider: "fal.ai",
+        model: usedEditMode ? "fal-ai/flux-2-flex/edit" : "fal-ai/flux-2-flex",
         stylePreset: args.stylePreset || "brand_strict",
+        promptFormat: "json_structured",
         mediaType,
-        size: spec.targetPixels,
-        aspectRatio,
-        width,
-        height,
-        dimensionsMatch,
+        imageSize: spec.imageSize,
+        width: falResult.width,
+        height: falResult.height,
+        seed: falResult.seed,
         generatedAt: Date.now(),
         hasImage: !!storageId,
+        hasReferenceImage: usedEditMode,
       };
 
       await ctx.runMutation(api.marketingAssets.updateStatus, {
@@ -583,7 +733,7 @@ export const generate = action({
         error?.message ||
         (typeof error === "string" ? error : null) ||
         (error ? JSON.stringify(error) : null) ||
-        "AI Gateway image generation failed";
+        "fal.ai image generation failed";
 
       await ctx.runMutation(api.marketingAssets.updateStatus, {
         id: assetId,
@@ -594,5 +744,3 @@ export const generate = action({
     }
   },
 });
-
-

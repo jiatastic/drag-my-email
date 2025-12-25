@@ -298,7 +298,7 @@ export function EmailBuilder() {
     >
       <div className="h-screen bg-background flex flex-col">
         {/* Top Header Bar (sign in/up only) */}
-        <div className="h-12 border-b bg-background flex items-center justify-between px-4 flex-shrink-0">
+        <div className="h-10 border-b bg-background flex items-center justify-between px-4 flex-shrink-0">
           <div className="flex items-center gap-4">
             <Link href="/builder" className="text-sm font-semibold hover:underline">
               Builder
@@ -324,7 +324,7 @@ export function EmailBuilder() {
           >
             <div className="h-full flex flex-col border-r overflow-hidden">
               <Tabs defaultValue="components" className="flex-1 flex flex-col h-full overflow-hidden">
-                <TabsList className="w-full rounded-none border-b bg-transparent h-11 p-0 flex-shrink-0">
+                <TabsList className="w-full rounded-none border-b bg-transparent h-10 p-0 flex-shrink-0">
                   <TabsTrigger 
                     value="components" 
                     className="flex-1 h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent gap-1.5 text-xs"
@@ -341,11 +341,11 @@ export function EmailBuilder() {
                   </TabsTrigger>
                 </TabsList>
                 
-                <TabsContent value="components" className="flex-1 m-0 overflow-hidden h-[calc(100%-44px)]">
+                <TabsContent value="components" className="flex-1 m-0 overflow-hidden h-[calc(100%-40px)]">
                   <ComponentPalette />
                 </TabsContent>
                 
-                <TabsContent value="ai" className="flex-1 m-0 overflow-hidden h-[calc(100%-44px)]">
+                <TabsContent value="ai" className="flex-1 m-0 overflow-hidden h-[calc(100%-40px)]">
                   <AIAssistantPanel
                     components={components}
                     globalStyles={globalStyles}
@@ -369,7 +369,7 @@ export function EmailBuilder() {
             <div className="h-full flex flex-col bg-muted/20">
               {/* Header with Device Selector and View Toggle */}
               <div className="border-b bg-background">
-                <div className="p-4 flex items-center justify-between">
+                <div className="px-4 py-3 flex items-center justify-between">
                   <div>
                     <h2 className="text-sm font-semibold text-foreground">Email Preview</h2>
                     <p className="text-xs text-muted-foreground mt-0.5">
@@ -470,7 +470,7 @@ export function EmailBuilder() {
           >
             <div className="h-full flex flex-col border-l overflow-hidden">
               <Tabs defaultValue="properties" className="flex-1 flex flex-col h-full overflow-hidden">
-                <TabsList className="w-full rounded-none border-b bg-transparent h-12 p-0 flex-shrink-0">
+                <TabsList className="w-full rounded-none border-b bg-transparent h-10 p-0 flex-shrink-0">
                   <TabsTrigger 
                     value="properties" 
                     className="flex-1 h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent gap-2"
@@ -487,7 +487,7 @@ export function EmailBuilder() {
                   </TabsTrigger>
                 </TabsList>
                 
-                <TabsContent value="properties" className="flex-1 m-0 overflow-hidden h-[calc(100%-48px)]">
+                <TabsContent value="properties" className="flex-1 m-0 overflow-hidden h-[calc(100%-40px)]">
                   <PropertyPanel
                     component={selectedComponentId ? getComponentById(selectedComponentId) : null}
                     onUpdate={(updates) => {
@@ -500,7 +500,7 @@ export function EmailBuilder() {
                   />
                 </TabsContent>
                 
-                <TabsContent value="templates" className="flex-1 m-0 overflow-hidden h-[calc(100%-48px)]">
+                <TabsContent value="templates" className="flex-1 m-0 overflow-hidden h-[calc(100%-40px)]">
                   <TemplateManager
                     components={components}
                     onLoadTemplate={(loadedComponents, config, templateGlobalStyles) => {

@@ -15,6 +15,7 @@ import type * as http from "../http.js";
 import type * as marketingAssets from "../marketingAssets.js";
 import type * as resendOtp from "../resendOtp.js";
 import type * as templates from "../templates.js";
+import type * as uploadedImages from "../uploadedImages.js";
 import type * as userSettings from "../userSettings.js";
 import type * as users from "../users.js";
 
@@ -32,6 +33,7 @@ declare const fullApi: ApiFromModules<{
   marketingAssets: typeof marketingAssets;
   resendOtp: typeof resendOtp;
   templates: typeof templates;
+  uploadedImages: typeof uploadedImages;
   userSettings: typeof userSettings;
   users: typeof users;
 }>;

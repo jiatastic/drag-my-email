@@ -56,6 +56,23 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_user_and_domain", ["userId", "domain"]),
 
+  // Uploaded product/reference images for marketing asset generation
+  uploadedImages: defineTable({
+    userId: v.id("users"),
+    brandId: v.id("brands"),
+    name: v.string(), // User-defined name or auto-generated
+    storageId: v.id("_storage"), // Convex file storage ID
+    mimeType: v.string(), // e.g. image/jpeg, image/png
+    size: v.number(), // File size in bytes
+    width: v.optional(v.number()), // Image width if known
+    height: v.optional(v.number()), // Image height if known
+    category: v.optional(v.string()), // e.g. "product", "lifestyle", "background"
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_brand", ["brandId"])
+    .index("by_brand_recent", ["brandId", "createdAt"]),
+
   // Generated marketing assets (images/copy) for a brand.
   marketingAssets: defineTable({
     userId: v.id("users"),
