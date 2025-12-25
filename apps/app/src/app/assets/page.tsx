@@ -109,6 +109,7 @@ function getAssetAspectClass(type: string): string {
   if (type === "logo_variant") return "aspect-square";
   if (type === "product_detail") return "aspect-[9/16]";
   if (type === "product_showcase") return "aspect-[9/16]";
+  if (type === "storyboard_grid") return "aspect-[16/9]";
   return "aspect-[16/9]";
 }
 
@@ -174,6 +175,21 @@ export default function AssetsPage() {
   const [productFeaturesInput, setProductFeaturesInput] = useState("");
   const [ecommerceMode, setEcommerceMode] = useState<"simple" | "detailed">("detailed");
   const [promptOverrides, setPromptOverrides] = useState("");
+
+  // Background override (optional). This is intentionally free-form and prepended to promptOverrides.
+  const [backgroundMode, setBackgroundMode] = useState<"preset" | "custom">("preset");
+  const [customBackground, setCustomBackground] = useState("");
+
+  // Storyboard mode state (kept flexible; we generate a dynamic promptOverrides template)
+  const [storyboardTheme, setStoryboardTheme] = useState("French high-end double-breasted trench coat");
+  const [storyboardModelDesc, setStoryboardModelDesc] = useState(
+    "One consistent female model, ultra-detailed face, natural skin texture, clear pupil highlights"
+  );
+  const [storyboardLighting, setStoryboardLighting] = useState("Clean studio lighting, premium fashion editorial tone");
+  const [storyboardGridText, setStoryboardGridText] = useState(
+    "Row1: ELS, LS, MLS\nRow2: MS, MCU, CU\nRow3: ECU (details), Low Angle Shot, High Angle Shot"
+  );
+
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -657,6 +673,12 @@ export default function AssetsPage() {
                         <span className="text-xs text-muted-foreground">Color/size guide, feature highlights (9:16)</span>
                       </div>
                     </SelectItem>
+                    <SelectItem value="storyboard_grid">
+                      <div className="flex flex-col items-start">
+                        <span className="font-medium">🎬 Storyboard Grid</span>
+                        <span className="text-xs text-muted-foreground">3x3 cinematic grid for campaigns (16:9)</span>
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -803,6 +825,150 @@ export default function AssetsPage() {
                 </div>
               )}
 
+              {/* Storyboard specific options */}
+              {assetType === "storyboard_grid" && (
+                <div className="space-y-4 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">🎬 Storyboard Mode</span>
+                    <span className="text-xs text-muted-foreground">3x3 grid, consistent model</span>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="storyboard-theme">Theme</Label>
+                    <Input
+                      id="storyboard-theme"
+                      value={storyboardTheme}
+                      onChange={(e) => setStoryboardTheme(e.target.value)}
+                      placeholder="French high-end double-breasted trench coat"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="storyboard-model-desc">Model consistency</Label>
+                    <textarea
+                      id="storyboard-model-desc"
+                      value={storyboardModelDesc}
+                      onChange={(e) => setStoryboardModelDesc(e.target.value)}
+                      placeholder="One consistent female model, same outfit, same lighting..."
+                      className="w-full min-h-[84px] px-3 py-2 text-sm border rounded-md bg-background"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="storyboard-lighting">Lighting / tone</Label>
+                    <Input
+                      id="storyboard-lighting"
+                      value={storyboardLighting}
+                      onChange={(e) => setStoryboardLighting(e.target.value)}
+                      placeholder="Premium fashion editorial tone, clean studio lighting"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Background will follow the selected style preset (not hardcoded).
+                    </p>
+                  </div>
+
+                  <div className="space-y-2 pt-2 border-t">
+                    <Label>Reference Product Images (Optional)</Label>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Upload product images to guide the storyboard generation. AI will use these as reference for consistent product appearance.
+                    </p>
+                    
+                    {/* Uploaded images grid */}
+                    {uploadedImages && uploadedImages.length > 0 && (
+                      <div className="grid grid-cols-4 gap-2 mb-2">
+                        {uploadedImages.map((img: any) => {
+                          const isSelected = selectedUploadedImageIds.includes(img._id);
+                          const selectionIndex = selectedUploadedImageIds.indexOf(img._id);
+                          return (
+                            <button
+                              key={img._id}
+                              type="button"
+                              onClick={() => toggleUploadedImage(img.url, img._id)}
+                              className={`relative aspect-square rounded-md overflow-hidden border-2 transition-all ${
+                                isSelected
+                                  ? "border-primary ring-2 ring-primary/20"
+                                  : "border-transparent hover:border-muted-foreground/30"
+                              }`}
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={img.url}
+                                alt={img.name}
+                                className="w-full h-full object-cover"
+                              />
+                              {isSelected && (
+                                <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                                  <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-bold flex items-center justify-center">
+                                    {selectionIndex + 1}
+                                  </span>
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Upload button */}
+                    <div className="flex gap-2">
+                      <label className="flex-1">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          className="hidden"
+                          disabled={uploading}
+                        />
+                        <div className="flex items-center justify-center gap-2 px-3 py-2 border border-dashed rounded-md cursor-pointer hover:bg-muted/50 transition-colors">
+                          {uploading ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Upload className="w-4 h-4" />
+                          )}
+                          <span className="text-sm">
+                            {uploading ? "Uploading..." : "Upload reference image"}
+                          </span>
+                        </div>
+                      </label>
+                      {selectedUploadedImageIds.length > 0 && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={clearSelectedImages}
+                        >
+                          Clear ({selectedUploadedImageIds.length})
+                        </Button>
+                      )}
+                    </div>
+
+                    {uploadError && (
+                      <p className="text-xs text-destructive">{uploadError}</p>
+                    )}
+
+                    {/* Manual URL input (fallback) */}
+                    <div className="pt-2 border-t">
+                      <Label htmlFor="storyboard-product-urls" className="text-xs text-muted-foreground">Or paste URLs (one per line, max 4)</Label>
+                      <textarea
+                        id="storyboard-product-urls"
+                        value={productImageUrls.join("\n")}
+                        onChange={(e) => {
+                          const urls = e.target.value.split("\n").filter((u) => u.trim()).slice(0, 4);
+                          setProductImageUrls(urls);
+                          setSelectedUploadedImageIds([]);
+                        }}
+                        placeholder="https://example.com/product1.jpg&#10;https://example.com/product2.jpg"
+                        className="mt-1 w-full min-h-[80px] px-3 py-2 text-sm border rounded-md bg-background"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {productImageUrls.length}/4 images selected
+                      </p>
+                    </div>
+                  </div>
+
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label>Professional styling</Label>
                 <Select value={stylePreset} onValueChange={(v) => setStylePreset(v as any)}>
@@ -854,6 +1020,43 @@ export default function AssetsPage() {
               </div>
 
               <div className="space-y-2">
+                <Label>Background</Label>
+                <Select value={backgroundMode} onValueChange={(v) => setBackgroundMode(v as "preset" | "custom")}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a background mode" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="preset">
+                      <div className="flex flex-col items-start">
+                        <span className="font-medium">Follow style preset</span>
+                        <span className="text-xs text-muted-foreground">Dynamic background from selected style</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="custom">
+                      <div className="flex flex-col items-start">
+                        <span className="font-medium">Custom background</span>
+                        <span className="text-xs text-muted-foreground">Override background per generation</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {backgroundMode === "custom" && (
+                  <div className="space-y-2">
+                    <textarea
+                      value={customBackground}
+                      onChange={(e) => setCustomBackground(e.target.value)}
+                      placeholder={'Examples:\n- Pure white seamless background, no gradient\n- Light gray studio backdrop, soft shadow\n- Dark charcoal background, subtle vignette\n- Use brand primary color as subtle gradient background'}
+                      className="w-full min-h-[96px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Tip: start with “Background:” and be specific (color, gradient/no gradient, texture, studio/lifestyle).
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="prompt-overrides">Prompt</Label>
                   <span className="text-xs text-muted-foreground">Optional</span>
@@ -897,17 +1100,37 @@ export default function AssetsPage() {
                       ? productFeaturesInput.split(",").map((f) => f.trim()).filter(Boolean)
                       : undefined;
 
+                    const storyboardOverrides =
+                      assetType === "storyboard_grid"
+                        ? buildStoryboardOverrides({
+                            theme: storyboardTheme,
+                            modelDesc: storyboardModelDesc,
+                            lighting: storyboardLighting,
+                            gridText: storyboardGridText,
+                          })
+                        : "";
+
+                    const backgroundOverride =
+                      backgroundMode === "custom" && customBackground.trim()
+                        ? `Background: ${customBackground.trim()}`
+                        : "";
+
+                    const combinedPromptOverrides = [backgroundOverride, storyboardOverrides, promptOverrides.trim()]
+                      .filter(Boolean)
+                      .join("\n\n");
+
                     await generateAsset({
                       brandId: selectedBrandId as any,
                       type: assetType,
                       stylePreset,
-                      promptOverrides: promptOverrides.trim() || undefined,
-                      // E-commerce specific parameters
+                      promptOverrides: combinedPromptOverrides || undefined,
+                      // Product image URLs (for e-commerce and storyboard modes)
                       productImageUrls: productImageUrls.length > 0 ? productImageUrls : undefined,
                       ecommerceMode: (assetType === "product_detail" || assetType === "product_showcase") ? ecommerceMode : undefined,
                       productFeatures: productFeatures?.length ? productFeatures : undefined,
                     });
                     setPromptOverrides("");
+                    setCustomBackground("");
                     setProductImageUrls([]);
                     setSelectedUploadedImageIds([]);
                     setProductFeaturesInput("");
@@ -1574,6 +1797,67 @@ export default function AssetsPage() {
       </div>
     </div>
   );
+}
+
+function buildStoryboardOverrides(args: {
+  theme: string;
+  modelDesc: string;
+  lighting: string;
+  gridText: string;
+}): string {
+  const gridLines = args.gridText
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  const rows = gridLines
+    .map((line) => {
+      const afterColon = line.includes(":") ? line.split(":").slice(1).join(":").trim() : line;
+      return afterColon
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+    })
+    .filter((r) => r.length > 0);
+
+  const normalizedRows = rows.slice(0, 3).map((r) => r.slice(0, 3));
+  const fallback = [
+    ["ELS (Extreme Long Shot)", "LS (Long Shot)", "MLS (Medium Long Shot)"],
+    ["MS (Medium Shot)", "MCU (Medium Close-Up)", "CU (Close-Up)"],
+    ["ECU (Extreme Close-Up, details)", "Low Angle Shot", "High Angle Shot"],
+  ];
+
+  const finalRows =
+    normalizedRows.length === 3 && normalizedRows.every((r) => r.length === 3) ? normalizedRows : fallback;
+
+  const gridText = finalRows.map((r, i) => `Row${i + 1}: ${r.join(" | ")}`).join("\n");
+
+  return `Generate a 3x3 cinematic storyboard grid.
+
+Theme: ${args.theme}
+Subject: ${args.modelDesc}
+Lighting: ${args.lighting}
+
+Camera shot sequence (3x3):
+${gridText}
+
+Rules:
+- Same model identity across all 9 panels (no face drift)
+- Same outfit across all panels (consistent materials and details)
+- Same lighting and color grading across all panels
+- Clean, premium fashion editorial tone; luxury e-commerce style
+- Clear panel boundaries/gutters; consistent grid alignment
+- Add minimal shot labels per panel (readable, clean, no extra text)
+
+Quality:
+- Ultra-detailed face and natural skin texture
+- Clear pupil highlights
+- Sharp focus where appropriate, realistic depth of field
+
+Negative:
+- multiple people, identity drift, different face, different outfit
+- broken grid, uneven borders, misaligned panels
+- watermark, logos, messy/unreadable text, artifacts, low quality`;
 }
 
 

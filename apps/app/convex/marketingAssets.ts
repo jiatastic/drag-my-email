@@ -107,7 +107,7 @@ const ASSET_TYPE_SPECS: Record<string, {
     styleGuidelines: [
       "Premium product photography with clean studio background",
       "Bilingual typography (Chinese/English) with glass morphism or 3D embossed text effects",
-      "Minimalist layout with generous whitespace, warm and pure background",
+      "Minimalist layout with generous whitespace (background should follow the selected style preset; not hardcoded)",
       "Professional product presentation with clear visual hierarchy",
     ],
     cameraSettings: {
@@ -122,13 +122,30 @@ const ASSET_TYPE_SPECS: Record<string, {
     styleGuidelines: [
       "Clean product presentation with color/material inspiration boards",
       "Minimalist grid layouts for size guides or feature comparisons",
-      "Warm, clean backgrounds with flat, high-end aesthetic",
+      "Clean backgrounds with flat, high-end aesthetic (background should follow the selected style preset; not hardcoded)",
       "Professional product photography with lifestyle context",
     ],
     cameraSettings: {
       angle: "eye level",
       distance: "medium shot",
       lens: "50mm",
+    },
+  },
+  storyboard_grid: {
+    description: "3x3 cinematic storyboard grid (single consistent model) for luxury e-commerce campaigns",
+    // A wide canvas helps readability for 9 panels + labels.
+    imageSize: { width: 1536, height: 864 }, // 16:9
+    styleGuidelines: [
+      "3x3 grid layout with consistent gutters and panel alignment",
+      "Single consistent subject across all panels (same identity, outfit, hair, makeup)",
+      "Camera shot progression across the grid (wide to close and detail shots)",
+      "Premium fashion editorial tone with clean, controlled lighting",
+      "Clear, readable shot labels per panel (e.g., ELS, LS, MLS...)",
+    ],
+    cameraSettings: {
+      angle: "varied (per panel)",
+      distance: "varied (per panel)",
+      lens: "varied (per panel)",
     },
   },
 };
@@ -140,6 +157,7 @@ const STYLE_PRESETS: Record<string, {
   lighting: string;
   mood: string;
   composition: string;
+  background: string;
 }> = {
   brand_strict: {
     label: "Brand strict",
@@ -147,6 +165,7 @@ const STYLE_PRESETS: Record<string, {
     lighting: "Soft studio lighting with controlled highlights and gentle shadows",
     mood: "Professional, trustworthy, premium",
     composition: "rule of thirds",
+    background: "Clean, neutral studio background (white or light gray) with optional subtle brand-color accents (no forced warm tint)",
   },
   minimal_modern: {
     label: "Minimal modern",
@@ -154,6 +173,7 @@ const STYLE_PRESETS: Record<string, {
     lighting: "Bright even lighting with soft diffusion",
     mood: "Clean, sophisticated, elegant",
     composition: "centered",
+    background: "Pure white or very light gray seamless background, high key, lots of negative space",
   },
   editorial_photo: {
     label: "Editorial photo",
@@ -161,6 +181,7 @@ const STYLE_PRESETS: Record<string, {
     lighting: "Natural lighting with soft diffusion and gentle contrast",
     mood: "Authentic, refined, aspirational",
     composition: "rule of thirds",
+    background: "Lifestyle/editorial environment background (tasteful, not busy), natural tones, realistic depth of field",
   },
   product_hero: {
     label: "Product hero",
@@ -168,6 +189,7 @@ const STYLE_PRESETS: Record<string, {
     lighting: "Controlled lighting with rim light and clean highlights",
     mood: "Premium, desirable, high-end",
     composition: "centered",
+    background: "Clean studio background with subtle gradient or soft shadow falloff; may incorporate brand colors but avoid forcing warm cream tones",
   },
   gradient_abstract: {
     label: "Gradient abstract",
@@ -175,6 +197,7 @@ const STYLE_PRESETS: Record<string, {
     lighting: "Ambient glow with subtle bloom effects",
     mood: "Innovative, modern, tech-forward",
     composition: "dynamic diagonal",
+    background: "Abstract gradient background with smooth transitions (use brand colors only if provided; otherwise free-form modern gradients)",
   },
   cinematic_3d: {
     label: "Cinematic 3D",
@@ -182,6 +205,7 @@ const STYLE_PRESETS: Record<string, {
     lighting: "Volumetric lighting with atmospheric haze and rim lighting",
     mood: "Epic, dramatic, immersive",
     composition: "dynamic diagonal",
+    background: "Cinematic background with controlled atmosphere (may be darker); tasteful gradients and depth, not flat warm cream",
   },
 };
 
@@ -255,13 +279,13 @@ function buildJsonPrompt(params: {
     if (params.type === "product_detail") {
       subjects.push({
         type: "Product detail poster",
-        description: `Professional 9:16 vertical premium product detail poster for ${params.brandName}. Clean Apple minimalist style with elegant typography. Glass morphism or 3D embossed text effects. Product photography with warm, pure background, generous whitespace. Professional studio quality with clear visual hierarchy.`,
+        description: `Professional 9:16 vertical premium product detail poster for ${params.brandName}. Clean Apple minimalist style with elegant typography. Glass morphism or 3D embossed text effects. Professional studio quality with clear visual hierarchy and generous whitespace. Background should follow the selected style preset (not hardcoded).`,
         position: "foreground",
       });
     } else if (params.type === "product_showcase") {
       subjects.push({
         type: "Product showcase poster",
-        description: `Professional 9:16 vertical product showcase poster for ${params.brandName}. Clean minimalist layout with color swatches, size guide, or feature highlights. Warm, clean background with flat, high-end aesthetic. Elegant typography with professional product presentation.`,
+        description: `Professional 9:16 vertical product showcase poster for ${params.brandName}. Clean minimalist layout with color swatches, size guide, or feature highlights. Flat, high-end aesthetic. Elegant typography with professional product presentation. Background should follow the selected style preset (not hardcoded).`,
         position: "foreground",
       });
     }
@@ -289,15 +313,27 @@ function buildJsonPrompt(params: {
       description: `Geometric brand mark inspired by ${params.brandName} identity`,
       position: "foreground",
     });
+  } else if (params.type === "storyboard_grid") {
+    subjects.push({
+      type: "Storyboard grid",
+      description:
+        "3x3 cinematic storyboard grid for a luxury e-commerce fashion campaign. One consistent model across all panels, same outfit, same lighting, same identity. Clear shot labels for each panel and consistent gutters. Use the selected style preset for overall look and background (do not hardcode warm/cream backgrounds).",
+      position: "foreground",
+    });
   }
 
   // Enhanced style for e-commerce mode
   let finalStyle = preset.style;
   let finalLighting = preset.lighting;
   let finalMood = preset.mood;
+  const finalBackground =
+    preset.background ||
+    "Clean studio background (white or light gray) with optional subtle brand tint; do not force a warm cream/champagne look";
   
   if (params.type === "product_detail" || params.type === "product_showcase") {
-    finalStyle = `Professional e-commerce product photography, Apple minimalist style, clean studio background, premium product presentation, elegant typography with glass morphism or 3D embossed text effects, generous whitespace, warm and pure color palette`;
+    // Keep e-commerce-specific direction, but do NOT override the background into a single hardcoded warm palette.
+    // Use stylePreset to control the background look and overall aesthetic.
+    finalStyle = `${preset.style}. Professional e-commerce product photography, premium product presentation, elegant typography with glass morphism or 3D embossed text effects, generous whitespace. Background: ${finalBackground}.`;
     finalLighting = `Professional studio soft lighting, controlled highlights, gentle shadows, natural diffusion, high-end fashion photography quality, realistic texture rendering`;
     finalMood = `Premium, trustworthy, sophisticated, clean, professional, high-end retail aesthetic`;
     
@@ -336,7 +372,7 @@ function buildJsonPrompt(params: {
 Technical specifications:
 - Format: 9:16 vertical portrait, high resolution
 - Style: Apple minimalist, clean studio photography
-- Background: Warm, pure color (cream, light champagne, or soft gradient), generous whitespace
+- Background: ${finalBackground}
 - Typography: Elegant, glass morphism or 3D embossed text effects, unified style but varied layouts
 - Product presentation: Professional studio quality, clear visual hierarchy, premium finish
 - Camera: ${spec.cameraSettings.lens} lens, ${spec.cameraSettings.angle} angle, ${spec.cameraSettings.distance}
@@ -349,11 +385,29 @@ ${jsonStr}
 Negative prompt: cluttered, busy, multiple patterns, shadows, watermark, messy text, low quality, blurry, plain face, AI-generated artifacts, distorted text, poor typography, inconsistent style, Chinese characters, Asian text`;
     } else {
       // Simple mode: Concise prompt with JSON structure
-      finalPrompt = `9:16 vertical premium product poster, Apple minimalist style, elegant typography, clean studio background, warm pure colors, generous whitespace. Specification: ${jsonStr}`;
+      finalPrompt = `9:16 vertical premium product poster, Apple minimalist style, elegant typography, clean studio background. Background: ${finalBackground}. Generous whitespace. Specification: ${jsonStr}`;
     }
   } else {
-    // Standard mode: JSON structure
-    finalPrompt = JSON.stringify(jsonPrompt, null, 2);
+    if (params.type === "storyboard_grid") {
+      // Storyboard mode: add explicit grid requirements while keeping it flexible via promptOverrides.
+      // Keep background dynamic via style preset.
+      finalPrompt = `Generate a 3x3 cinematic storyboard grid.
+
+Global constraints:
+- One consistent model across all panels (same identity/face, same outfit, same hair and makeup)
+- Consistent lighting across all panels: ${finalLighting}
+- Background: ${finalBackground}
+- Tone: premium fashion editorial, luxury e-commerce style
+- Typography: minimal, only shot labels if included; avoid extra decorative text
+
+Specification:
+${JSON.stringify(jsonPrompt, null, 2)}
+
+Negative prompt: inconsistent face, different person, multiple identities, face drift, extra limbs, distorted hands, broken grid layout, misaligned panels, unreadable labels, messy text, watermark, low quality, blurry, artifacts`;
+    } else {
+      // Standard mode: JSON structure
+      finalPrompt = JSON.stringify(jsonPrompt, null, 2);
+    }
   }
   
   // If user provides custom prompt overrides, prepend them

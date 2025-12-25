@@ -1535,7 +1535,7 @@ export function EmailCanvas({
   // Send email dialog state
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState("");
-  const [emailSubject, setEmailSubject] = useState("Your Email from React Email Builder");
+  const [emailSubject, setEmailSubject] = useState("Your Email from drag.email");
   const [sendStatus, setSendStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
   const [sendError, setSendError] = useState<string>("");
   const currentUser = useQuery(api.users.current);

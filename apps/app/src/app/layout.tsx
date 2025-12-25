@@ -6,8 +6,8 @@ import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import "@/styles/globals.css";
 
 export const metadata: Metadata = {
-  title: "React Email Builder",
-  description: "Drag and drop email builder with React Email components",
+  title: "drag.email - drag & drop email like lego blocks",
+  description: "Build beautiful, responsive emails with a visual drag-and-drop editor. Export clean React Email code instantly.",
 };
 
 export default function RootLayout({

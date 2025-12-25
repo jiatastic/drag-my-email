@@ -34,7 +34,7 @@ function AppLogo({ className }: { className?: string }) {
   return (
     <Image
       src="/logo.svg"
-      alt="React Email Builder logo"
+      alt="drag.email logo"
       width={48}
       height={48}
       className={className}
