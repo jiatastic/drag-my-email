@@ -8,6 +8,7 @@ import { Mail, Lock, User, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InputOTP } from "@/components/ui/input-otp";
 import { useConvexAuth } from "convex/react";
+import { getAuthErrorMessage, AUTH_ERROR_MESSAGES } from "@/lib/auth-errors";
 
 export function SignupForm() {
   const { signIn } = useAuthActions();
@@ -57,50 +58,17 @@ export function SignupForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, isAuthenticated]);
 
-  // Convert technical errors to user-friendly messages
-  const getErrorMessage = (error: any): string => {
-    const errorMessage = error?.message || error?.toString() || "";
-    const errorName = error?.name || "";
-
-    // Convex Auth specific errors
-    if (errorMessage.includes("InvalidAccountId") || errorName === "InvalidAccountId") {
-      return "Account creation failed. Please try again.";
-    }
-    if (errorMessage.includes("EmailAlreadyExists") || errorMessage.includes("already exists")) {
-      return "This email is already registered. Please sign in or use a different email.";
-    }
-    if (errorMessage.includes("InvalidEmail") || errorMessage.includes("invalid email")) {
-      return "Invalid email format. Please check and try again.";
-    }
-    if (errorMessage.includes("PasswordTooShort") || errorMessage.includes("password too short")) {
-      return "Password is too short. Password must be at least 8 characters.";
-    }
-    if (errorMessage.includes("NetworkError") || errorMessage.includes("fetch")) {
-      return "Network error. Check your connection and try again.";
-    }
-
-    // Generic error messages
-    if (errorMessage) {
-      if (errorMessage.includes("Failed to create account")) {
-        return "Sign-up failed. This email may already be registered.";
-      }
-      return errorMessage;
-    }
-
-    return "Sign-up failed. Please try again later.";
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match. Please try again.");
+      setError(AUTH_ERROR_MESSAGES.PASSWORDS_DONT_MATCH);
       return;
     }
 
     if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
+      setError(AUTH_ERROR_MESSAGES.PASSWORD_TOO_SHORT);
       return;
     }
 
@@ -114,10 +82,9 @@ export function SignupForm() {
           setStep({ email: stepEmail });
         }
       }, 150);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Sign up error:", err);
-      const friendlyError = getErrorMessage(err);
-      setError(friendlyError);
+      setError(getAuthErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
@@ -130,9 +97,9 @@ export function SignupForm() {
     setIsLoading(true);
     try {
       await signIn("password", { email: step.email, code: otp, flow: "email-verification" });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Email verification error:", err);
-      setError(getErrorMessage(err));
+      setError(getAuthErrorMessage(err));
     } finally {
       setIsLoading(false);
     }

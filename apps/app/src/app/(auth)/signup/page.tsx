@@ -1,6 +1,6 @@
 "use client";
 
-import { GalleryVerticalEnd } from "lucide-react";
+import Image from "next/image";
 import { SignupForm } from "@/components/auth/signup-form";
 import { AuthErrorBoundary } from "@/components/auth/auth-error-boundary";
 
@@ -11,10 +11,10 @@ export default function SignUpPage() {
         <div className="flex flex-col gap-4 p-6 md:p-10">
           <div className="flex justify-center gap-2 md:justify-start">
             <a href="/" className="flex items-center gap-2 font-medium">
-              <div className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md">
-                <GalleryVerticalEnd className="size-4" />
+              <div className="bg-primary/10 ring-1 ring-primary/15 flex size-8 items-center justify-center rounded-xl">
+                <Image src="/logo.svg" alt="Drag.Email" width={18} height={18} priority />
               </div>
-              Email Builder
+              Drag.Email
             </a>
           </div>
           <div className="flex flex-1 items-center justify-center">
@@ -28,7 +28,7 @@ export default function SignUpPage() {
           <div className="absolute inset-0 flex items-center justify-center p-10">
             <div className="text-center space-y-4">
               <div className="bg-primary/10 rounded-full p-6 inline-block">
-                <GalleryVerticalEnd className="size-12 text-primary" />
+                <Image src="/logo.svg" alt="" width={48} height={48} />
               </div>
               <h2 className="text-2xl font-bold">Start Building Today</h2>
               <p className="text-muted-foreground max-w-sm">

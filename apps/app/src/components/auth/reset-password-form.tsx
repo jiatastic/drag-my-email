@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, Loader2, Mail, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InputOTP } from "@/components/ui/input-otp";
+import { getAuthErrorMessage } from "@/lib/auth-errors";
 
 export function ResetPasswordForm() {
   const { signIn } = useAuthActions();
@@ -51,8 +52,8 @@ export function ResetPasswordForm() {
     try {
       await signIn("password", { email, flow: "reset" });
       setStep({ email });
-    } catch (err: any) {
-      setError(err?.message || "Failed to send reset code.");
+    } catch (err: unknown) {
+      setError(getAuthErrorMessage(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -78,8 +79,8 @@ export function ResetPasswordForm() {
           window.location.href = url;
         }
       }, 500);
-    } catch (err: any) {
-      setError(err?.message || "Failed to reset password.");
+    } catch (err: unknown) {
+      setError(getAuthErrorMessage(err));
     } finally {
       setIsSubmitting(false);
     }
