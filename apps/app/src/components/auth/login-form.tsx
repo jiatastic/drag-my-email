@@ -29,10 +29,18 @@ export function LoginForm() {
     isAuthenticatedRef.current = isAuthenticated;
   }, [isAuthenticated]);
 
+  // Build absolute URL for OAuth redirect (relative paths get resolved against Convex URL instead of app URL)
   const redirectWithPopup = useMemo(() => {
-    if (!isPopup) return redirect;
-    const hasQuery = redirect.includes("?");
-    return `${redirect}${hasQuery ? "&" : "?"}popup=1`;
+    let url = redirect;
+    if (isPopup) {
+      const hasQuery = redirect.includes("?");
+      url = `${redirect}${hasQuery ? "&" : "?"}popup=1`;
+    }
+    // Convert to absolute URL using window.location.origin
+    if (typeof window !== "undefined" && !url.startsWith("http")) {
+      return new URL(url, window.location.origin).toString();
+    }
+    return url;
   }, [redirect, isPopup]);
 
   const finishRedirect = () => {
