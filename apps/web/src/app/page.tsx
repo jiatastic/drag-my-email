@@ -2541,9 +2541,16 @@ export default function Home() {
     return `${protocol}//app.${hostname}`;
   };
 
+  const handleSignupClick = () => {
+    const baseUrl = getAppBaseUrl();
+    const signupUrl = new URL("/signup", baseUrl || (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"));
+    signupUrl.searchParams.set("redirect", "/builder");
+    window.location.href = signupUrl.toString();
+  };
+
   const handleLoginClick = () => {
     const baseUrl = getAppBaseUrl();
-    const loginUrl = new URL("/login", baseUrl || (typeof window !== "undefined" ? window.location.origin : "http://localhost"));
+    const loginUrl = new URL("/login", baseUrl || (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"));
     loginUrl.searchParams.set("redirect", "/builder");
 
     // Always navigate in the same tab. Popups often end up as new tabs and are commonly blocked.
@@ -2602,7 +2609,7 @@ export default function Home() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/25 shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
+              <button onClick={handleSignupClick} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/25 shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
                 <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary">
                   <Sparkles className="w-3 h-3 text-white" />
                 </span>
@@ -2610,7 +2617,7 @@ export default function Home() {
                   Generate beautiful emails with AI
                 </span>
                 <ArrowRight className="w-4 h-4 text-primary group-hover:translate-x-0.5 transition-transform" />
-              </div>
+              </button>
             </motion.div>
 
             {/* Rotating Headlines */}
