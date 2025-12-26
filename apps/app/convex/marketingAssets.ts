@@ -8,11 +8,11 @@ import { fal } from "@fal-ai/client";
 type AssetStatus = "queued" | "running" | "succeeded" | "failed";
 
 // fal.ai model IDs
-const FAL_MODEL_TEXT = "fal-ai/flux-2/turbo";
-const FAL_MODEL_EDIT = "fal-ai/flux-2/turbo/edit";
+const FAL_MODEL_TEXT = "fal-ai/flux-2-flex";
+const FAL_MODEL_EDIT = "fal-ai/flux-2-flex/edit";
 
-// flux-2/turbo supported image_size presets
-// Docs: https://fal.ai/models/fal-ai/flux-2/turbo/api
+// flux-2-flex supported image_size presets
+// Docs: https://fal.ai/models/fal-ai/flux-2-flex/api
 type FalImageSizePreset = 
   | "square_hd"      // 1024x1024 HD square
   | "square"         // 512x512 standard square
@@ -34,7 +34,7 @@ type FalImageSize = FalImageSizePreset | FalCustomImageSize;
 type FalOutputFormat = "jpeg" | "png";
 
 // Asset type specifications for marketing assets
-// Using flux-2/turbo's image_size presets or custom dimensions
+// Using flux-2-flex's image_size presets or custom dimensions
 const ASSET_TYPE_SPECS: Record<string, {
   description: string;
   imageSize: FalImageSize;
@@ -436,7 +436,7 @@ Negative prompt: plastic skin, airbrushed face, symmetrical face, perfect skin, 
 }
 
 // Call fal.ai API using official client
-// Uses flux-2/turbo for text-to-image, flux-2/turbo/edit for image-to-image
+// Uses flux-2-flex for text-to-image, flux-2-flex/edit for image-to-image
 async function callFalAPI(params: {
   prompt: string;
   imageSize: FalImageSize;
@@ -721,7 +721,7 @@ export const generate = action({
       productFeatures: args.productFeatures,
     });
 
-    const provider = "fal.ai/flux-2/turbo";
+    const provider = "fal.ai/flux-2-flex";
     const assetId = await ctx.runMutation(api.marketingAssets.create, {
       brandId: args.brandId,
       type: args.type,
@@ -748,7 +748,7 @@ export const generate = action({
 
     try {
       // Call fal.ai API
-      // Use flux-2/turbo/edit if product image is provided, otherwise flux-2/turbo
+      // Use flux-2-flex/edit if product image is provided, otherwise flux-2-flex
       const falResult = await callFalAPI({
         prompt,
         imageSize: spec.imageSize,
@@ -778,7 +778,7 @@ export const generate = action({
       const usedEditMode = args.productImageUrls && args.productImageUrls.length > 0;
       const resultMeta = {
         provider: "fal.ai",
-        model: usedEditMode ? "fal-ai/flux-2/turbo/edit" : "fal-ai/flux-2/turbo",
+        model: usedEditMode ? "fal-ai/flux-2-flex/edit" : "fal-ai/flux-2-flex",
         stylePreset: args.stylePreset || "brand_strict",
         promptFormat: "json_structured",
         mediaType,
