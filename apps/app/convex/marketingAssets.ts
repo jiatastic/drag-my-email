@@ -7,19 +7,21 @@ import { fal } from "@fal-ai/client";
 
 type AssetStatus = "queued" | "running" | "succeeded" | "failed";
 
-// fal.ai model IDs
-const FAL_MODEL_TEXT = "fal-ai/flux-2-flex";
-const FAL_MODEL_EDIT = "fal-ai/flux-2-flex/edit";
+// fal.ai model IDs - ByteDance Seedream v4.5
+const FAL_MODEL_TEXT = "fal-ai/bytedance/seedream/v4.5/text-to-image";
+const FAL_MODEL_EDIT = "fal-ai/bytedance/seedream/v4.5/edit";
 
-// flux-2-flex supported image_size presets
-// Docs: https://fal.ai/models/fal-ai/flux-2-flex/api
+// Seedream v4.5 supported image_size presets
+// Docs: https://fal.ai/models/fal-ai/bytedance/seedream/v4.5/text-to-image/api
 type FalImageSizePreset = 
   | "square_hd"      // 1024x1024 HD square
   | "square"         // 512x512 standard square
   | "portrait_4_3"   // 768x1024 portrait
   | "portrait_16_9"  // 576x1024 tall portrait
   | "landscape_4_3"  // 1024x768 landscape
-  | "landscape_16_9"; // 1024x576 widescreen
+  | "landscape_16_9" // 1024x576 widescreen
+  | "auto_2K"        // Auto 2K resolution
+  | "auto_4K";       // Auto 4K resolution
 
 // Custom image size for precise control
 interface FalCustomImageSize {
@@ -30,11 +32,8 @@ interface FalCustomImageSize {
 // fal.ai image_size can be preset or custom dimensions
 type FalImageSize = FalImageSizePreset | FalCustomImageSize;
 
-// fal.ai output format options
-type FalOutputFormat = "jpeg" | "png";
-
 // Asset type specifications for marketing assets
-// Using flux-2-flex's image_size presets or custom dimensions
+// Using Seedream v4.5's image_size presets or custom dimensions
 const ASSET_TYPE_SPECS: Record<string, {
   description: string;
   imageSize: FalImageSize;
@@ -328,8 +327,21 @@ function buildJsonPrompt(params: {
   let finalStyle = preset.style;
   let finalLighting = preset.lighting;
   let finalMood = preset.mood;
-  const finalBackground =
-    preset.background ||
+  
+  // Check if user provided a custom background override in promptOverrides
+  // Format: "Background: <custom description>" at the start of promptOverrides
+  let userCustomBackground: string | null = null;
+  let cleanedPromptOverrides = params.promptOverrides?.trim() || "";
+  
+  const backgroundMatch = cleanedPromptOverrides.match(/^Background:\s*(.+?)(?:\n\n|$)/i);
+  if (backgroundMatch) {
+    userCustomBackground = backgroundMatch[1].trim();
+    // Remove the background line from promptOverrides to avoid duplication
+    cleanedPromptOverrides = cleanedPromptOverrides.replace(/^Background:\s*.+?(?:\n\n|$)/i, "").trim();
+  }
+  
+  // Use user's custom background if provided, otherwise use preset
+  const finalBackground = userCustomBackground || preset.background ||
     "Clean studio background (white or light gray) with optional subtle brand tint; do not force a warm cream/champagne look";
   
   if (params.type === "product_detail" || params.type === "product_showcase") {
@@ -427,25 +439,21 @@ Negative prompt: plastic skin, airbrushed face, symmetrical face, perfect skin, 
     }
   }
   
-  // If user provides custom prompt overrides, prepend them
-  if (params.promptOverrides?.trim()) {
-    finalPrompt = `${params.promptOverrides.trim()}\n\n${finalPrompt}`;
+  // If user provides custom prompt overrides (excluding the background which is already applied), prepend them
+  if (cleanedPromptOverrides) {
+    finalPrompt = `${cleanedPromptOverrides}\n\n${finalPrompt}`;
   }
 
   return finalPrompt;
 }
 
 // Call fal.ai API using official client
-// Uses flux-2-flex for text-to-image, flux-2-flex/edit for image-to-image
+// Uses ByteDance Seedream v4.5 for text-to-image and edit (image-to-image)
 async function callFalAPI(params: {
   prompt: string;
   imageSize: FalImageSize;
   seed?: number;
-  outputFormat?: FalOutputFormat;
   apiKey: string;
-  enablePromptExpansion?: boolean;
-  guidanceScale?: number;
-  numInferenceSteps?: number;
   imageUrls?: string[]; // Reference image URLs for image-to-image generation (edit mode)
 }): Promise<{ 
   imageUrl: string; 
@@ -465,16 +473,13 @@ async function callFalAPI(params: {
 
   console.log(`[fal.ai] Using model: ${modelId}, isEditMode: ${isEditMode}`);
 
-  // Build input payload
+  // Build input payload for Seedream v4.5
   const input: Record<string, unknown> = {
     prompt: params.prompt,
     image_size: params.imageSize,
-    output_format: params.outputFormat || "jpeg",
+    num_images: 1,
+    max_images: 1,
     enable_safety_checker: true,
-    safety_tolerance: "2",
-    enable_prompt_expansion: params.enablePromptExpansion ?? true,
-    guidance_scale: params.guidanceScale ?? 3.5,
-    num_inference_steps: params.numInferenceSteps ?? 28,
   };
 
   // Edit mode uses image_urls array
@@ -721,7 +726,7 @@ export const generate = action({
       productFeatures: args.productFeatures,
     });
 
-    const provider = "fal.ai/flux-2-flex";
+    const provider = "fal.ai/bytedance/seedream/v4.5";
     const assetId = await ctx.runMutation(api.marketingAssets.create, {
       brandId: args.brandId,
       type: args.type,
@@ -748,15 +753,11 @@ export const generate = action({
 
     try {
       // Call fal.ai API
-      // Use flux-2-flex/edit if product image is provided, otherwise flux-2-flex
+      // Use Seedream v4.5 edit if product image is provided, otherwise text-to-image
       const falResult = await callFalAPI({
         prompt,
         imageSize: spec.imageSize,
-        outputFormat: "jpeg", // Default per API docs
         apiKey: falApiKey,
-        enablePromptExpansion: true,
-        guidanceScale: 3.5, // Default per API docs
-        numInferenceSteps: 28, // Default per API docs
         imageUrls: args.productImageUrls && args.productImageUrls.length > 0 ? args.productImageUrls : undefined,
       });
 
@@ -778,7 +779,7 @@ export const generate = action({
       const usedEditMode = args.productImageUrls && args.productImageUrls.length > 0;
       const resultMeta = {
         provider: "fal.ai",
-        model: usedEditMode ? "fal-ai/flux-2-flex/edit" : "fal-ai/flux-2-flex",
+        model: usedEditMode ? FAL_MODEL_EDIT : FAL_MODEL_TEXT,
         stylePreset: args.stylePreset || "brand_strict",
         promptFormat: "json_structured",
         mediaType,
