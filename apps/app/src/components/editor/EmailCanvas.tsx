@@ -29,7 +29,7 @@ import { Mail, GripVertical, Trash2, Layers, Eye, Plus, Send, Loader2, CheckCirc
 import { LayersPanel } from "./LayersPanel";
 import type { DeviceType } from "../EmailBuilder";
 import { useEffect, useState, useRef, Fragment, useMemo, useCallback } from "react";
-import { useConvexAuth, useQuery } from "convex/react";
+import { useConvexAuth, useQuery, useMutation } from "convex/react";
 import { LoginDialog } from "../auth/LoginDialog";
 import { api } from "../../../convex/_generated/api";
 
@@ -1539,6 +1539,7 @@ export function EmailCanvas({
   const [sendStatus, setSendStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
   const [sendError, setSendError] = useState<string>("");
   const currentUser = useQuery(api.users.current);
+  const consumeRateLimit = useMutation(api.rateLimits.consume);
   
   // Login dialog state (for unauthenticated users)
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
@@ -1606,6 +1607,9 @@ export function EmailCanvas({
     setSendError("");
 
     try {
+      // Check rate limit before sending
+      await consumeRateLimit({ action: "email_send" });
+
       // Convert relative image URLs to absolute URLs for email sending
       const componentsWithAbsoluteUrls = convertImageUrlsToAbsolute(components);
       

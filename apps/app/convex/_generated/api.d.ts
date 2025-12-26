@@ -13,6 +13,7 @@ import type * as brands from "../brands.js";
 import type * as chatHistories from "../chatHistories.js";
 import type * as http from "../http.js";
 import type * as marketingAssets from "../marketingAssets.js";
+import type * as rateLimits from "../rateLimits.js";
 import type * as resendOtp from "../resendOtp.js";
 import type * as templates from "../templates.js";
 import type * as uploadedImages from "../uploadedImages.js";
@@ -31,6 +32,7 @@ declare const fullApi: ApiFromModules<{
   chatHistories: typeof chatHistories;
   http: typeof http;
   marketingAssets: typeof marketingAssets;
+  rateLimits: typeof rateLimits;
   resendOtp: typeof resendOtp;
   templates: typeof templates;
   uploadedImages: typeof uploadedImages;

@@ -9,7 +9,7 @@ function normalizeDomain(hostname: string) {
 }
 
 function getBrandLimit(plan: "free" | "pro") {
-  return plan === "pro" ? 5 : 1;
+  return plan === "pro" ? 5 : 2;
 }
 
 export const list = query({
@@ -166,6 +166,11 @@ export const importFromUrl = action({
       if (currentCount >= limit) {
         throw new Error(`Brand limit reached (${currentCount}/${limit}). Upgrade to import more brands.`);
       }
+    }
+
+    // Check rate limit before expensive API call (only for new imports)
+    if (!existing) {
+      await ctx.runMutation(api.rateLimits.consume, { action: "brand_import" });
     }
 
     const apiKey = process.env.FIRECRAWL_API_KEY;

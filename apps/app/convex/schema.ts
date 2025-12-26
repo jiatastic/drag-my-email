@@ -120,4 +120,13 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_user", ["userId"]),
+
+  // Rate limiting tracking for free tier users
+  rateLimits: defineTable({
+    userId: v.id("users"),
+    action: v.string(), // "brand_import" | "asset_generate" | "ai_assistant" | "email_send"
+    count: v.number(), // Number of actions in current window
+    windowStart: v.number(), // Timestamp when the current window started
+  })
+    .index("by_user_action", ["userId", "action"]),
 });

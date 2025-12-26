@@ -133,6 +133,7 @@ export function AIAssistantPanel({ components, globalStyles, onApplyTemplate, on
   const updateChat = useMutation(api.chatHistories.update);
   const deleteChat = useMutation(api.chatHistories.remove);
   const brands = useQuery(api.brands.list);
+  const consumeRateLimit = useMutation(api.rateLimits.consume);
   const marketingAssets = useQuery(
     api.marketingAssets.listByBrand,
     selectedBrandId ? ({ brandId: selectedBrandId as any } as any) : ("skip" as any)
@@ -311,6 +312,9 @@ export function AIAssistantPanel({ components, globalStyles, onApplyTemplate, on
     abortControllerRef.current = new AbortController();
     
     try {
+      // Check rate limit before making AI request
+      await consumeRateLimit({ action: "ai_assistant" });
+
       const response = await fetch("/api/ai-assistant", {
         method: "POST",
         headers: {
