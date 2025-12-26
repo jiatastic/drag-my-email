@@ -297,19 +297,25 @@ export function EmailBuilder() {
       onDragEnd={handleDragEnd}
     >
       <div className="h-screen bg-background flex flex-col">
-        {/* Top Header Bar (sign in/up only) */}
-        <div className="h-10 border-b bg-background flex items-center justify-between px-4 flex-shrink-0">
-          <div className="flex items-center gap-4">
-            <Link href="/builder" className="text-sm font-semibold hover:underline">
-              Builder
-            </Link>
-            <Link href="/assets" className="text-sm font-semibold text-muted-foreground hover:text-foreground">
-              Assets
-            </Link>
-          </div>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <UserMenu />
+        {/* Top Header Bar */}
+        <div className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60 flex-shrink-0">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="flex h-12 items-center justify-between">
+              <div className="flex items-center gap-4">
+                <span className="text-sm font-semibold text-foreground">Builder</span>
+                <div className="h-4 w-px bg-border" />
+                <Link 
+                  href="/assets" 
+                  className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  Assets
+                </Link>
+              </div>
+              <div className="flex items-center gap-3">
+                <ThemeToggle />
+                <UserMenu />
+              </div>
+            </div>
           </div>
         </div>
         

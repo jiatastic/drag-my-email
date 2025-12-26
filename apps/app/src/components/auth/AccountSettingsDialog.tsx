@@ -15,7 +15,52 @@ import {
   Input,
   Label,
 } from "@react-email-builder/ui";
-import { Loader2 } from "lucide-react";
+import { Loader2, Zap, Sparkles, Mail, Image } from "lucide-react";
+
+// Usage limit display labels
+const USAGE_LABELS: Record<string, { label: string; icon: React.ReactNode }> = {
+  brand_import: { label: "Brand Imports", icon: <Zap className="h-4 w-4" /> },
+  asset_generate: { label: "AI Image Generation", icon: <Image className="h-4 w-4" /> },
+  ai_assistant: { label: "AI Email Assistant", icon: <Sparkles className="h-4 w-4" /> },
+  email_send: { label: "Emails Sent", icon: <Mail className="h-4 w-4" /> },
+};
+
+function UsageBar({ used, limit }: { used: number; limit: number }) {
+  const percentage = limit > 0 ? Math.min((used / limit) * 100, 100) : 0;
+  const isNearLimit = percentage >= 80;
+  const isAtLimit = percentage >= 100;
+  
+  return (
+    <div className="space-y-1">
+      <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+        <div 
+          className={`h-full transition-all duration-300 rounded-full ${
+            isAtLimit ? "bg-destructive" : isNearLimit ? "bg-yellow-500" : "bg-primary"
+          }`}
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
+      <div className="flex justify-between text-xs text-muted-foreground">
+        <span>{used} used</span>
+        <span>{limit - used} remaining</span>
+      </div>
+    </div>
+  );
+}
+
+function formatResetTime(resetAt: number): string {
+  const now = Date.now();
+  const diff = resetAt - now;
+  if (diff <= 0) return "Resetting...";
+  
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  
+  if (hours > 0) {
+    return `Resets in ${hours}h ${minutes}m`;
+  }
+  return `Resets in ${minutes}m`;
+}
 
 export type AccountSettingsDialogProps = {
   open: boolean;
@@ -34,6 +79,10 @@ export function AccountSettingsDialog({ open, onOpenChange }: AccountSettingsDia
   const user = useQuery(api.users.current);
   const updateProfile = useMutation(api.users.updateProfile);
   const generateAvatarUploadUrl = useMutation(api.users.generateAvatarUploadUrl);
+  const userSettings = useQuery(api.userSettings.get);
+  const rateLimits = useQuery(api.rateLimits.getAll);
+  
+  const plan = userSettings?.plan || "free";
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -108,10 +157,10 @@ export function AccountSettingsDialog({ open, onOpenChange }: AccountSettingsDia
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Account settings</DialogTitle>
-          <DialogDescription>Update your name and avatar.</DialogDescription>
+          <DialogDescription>Update your profile and view your usage limits.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
@@ -182,6 +231,52 @@ export function AccountSettingsDialog({ open, onOpenChange }: AccountSettingsDia
                 placeholder="Last name"
               />
             </div>
+          </div>
+
+          {/* Usage Limits Section */}
+          <div className="space-y-3 pt-4 border-t">
+            <div className="flex items-center justify-between">
+              <Label className="text-base font-medium">Daily Usage</Label>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                plan === "pro" 
+                  ? "bg-primary/10 text-primary" 
+                  : "bg-muted text-muted-foreground"
+              }`}>
+                {plan === "pro" ? "Pro Plan" : "Free Plan"}
+              </span>
+            </div>
+            
+            {rateLimits ? (
+              <div className="space-y-4">
+                {Object.entries(rateLimits).map(([action, data]) => {
+                  const config = USAGE_LABELS[action];
+                  if (!config) return null;
+                  
+                  return (
+                    <div key={action} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-sm font-medium">
+                          {config.icon}
+                          <span>{config.label}</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {formatResetTime(data.resetAt)}
+                        </span>
+                      </div>
+                      <UsageBar used={data.count} limit={data.limit} />
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground">Loading usage data...</div>
+            )}
+            
+            {plan === "free" && (
+              <div className="text-xs text-muted-foreground mt-2 p-3 bg-muted/50 rounded-lg">
+                <span className="font-medium">Need more?</span> Upgrade to Pro for higher limits and unlimited AI assistance.
+              </div>
+            )}
           </div>
 
           {error && (

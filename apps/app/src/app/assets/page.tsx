@@ -42,6 +42,7 @@ import {
   Check,
 } from "lucide-react";
 import { UserMenu } from "@/components/auth/UserMenu";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { getGoogleFaviconUrl } from "@/lib/social-icons";
 import { TruncatedText } from "@/components/ui/truncated-text";
 
@@ -453,6 +454,7 @@ export default function AssetsPage() {
                 New Brand
               </Button>
 
+              <ThemeToggle />
               <UserMenu />
             </div>
           </div>
