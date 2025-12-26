@@ -4,7 +4,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Loader2, AlertCircle } from "lucide-react";
 import { useConvexAuth } from "convex/react";
 import { InputOTP } from "@/components/ui/input-otp";
@@ -43,7 +43,12 @@ function AppLogo({ className }: { className?: string }) {
   );
 }
 
-export function LoginDialog({ open, onOpenChange, onSuccess, defaultMode = "signIn" }: LoginDialogProps) {
+export function LoginDialog({
+  open,
+  onOpenChange,
+  onSuccess,
+  defaultMode = "signIn",
+}: LoginDialogProps) {
   const { signIn } = useAuthActions();
   const updateName = useMutation(api.users.updateName);
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
@@ -55,6 +60,14 @@ export function LoginDialog({ open, onOpenChange, onSuccess, defaultMode = "sign
   const [otp, setOtp] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Build redirect URL for OAuth
+  const redirectUrl = useMemo(() => {
+    if (typeof window !== "undefined") {
+      return window.location.href;
+    }
+    return "/builder";
+  }, []);
 
   // Sync mode with defaultMode when dialog opens
   useEffect(() => {
@@ -72,15 +85,17 @@ export function LoginDialog({ open, onOpenChange, onSuccess, defaultMode = "sign
       onOpenChange(false);
       onSuccess?.();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, authLoading, isAuthenticated]);
+  }, [open, authLoading, isAuthenticated, onOpenChange, onSuccess]);
 
   // Convert technical errors to user-friendly messages
   const getErrorMessage = (error: any): string => {
     const errorMessage = error?.message || error?.toString() || "";
     const errorName = error?.name || "";
 
-    if (errorMessage.includes("InvalidAccountId") || errorName === "InvalidAccountId") {
+    if (
+      errorMessage.includes("InvalidAccountId") ||
+      errorName === "InvalidAccountId"
+    ) {
       return "Account not found. Please sign up first.";
     }
     if (
@@ -90,13 +105,22 @@ export function LoginDialog({ open, onOpenChange, onSuccess, defaultMode = "sign
     ) {
       return "Incorrect password. Please try again.";
     }
-    if (errorMessage.includes("UserNotFound") || errorMessage.includes("user not found")) {
+    if (
+      errorMessage.includes("UserNotFound") ||
+      errorMessage.includes("user not found")
+    ) {
       return "No account found for this email. Please sign up.";
     }
-    if (errorMessage.includes("EmailAlreadyExists") || errorMessage.includes("already exists")) {
+    if (
+      errorMessage.includes("EmailAlreadyExists") ||
+      errorMessage.includes("already exists")
+    ) {
       return "This email is already registered. Please sign in.";
     }
-    if (errorMessage.includes("NetworkError") || errorMessage.includes("fetch")) {
+    if (
+      errorMessage.includes("NetworkError") ||
+      errorMessage.includes("fetch")
+    ) {
       return "Network error. Check your connection and try again.";
     }
     if (errorMessage.includes("Unauthorized") || errorMessage.includes("401")) {
@@ -153,7 +177,11 @@ export function LoginDialog({ open, onOpenChange, onSuccess, defaultMode = "sign
     setError(null);
     setIsLoading(true);
     try {
-      await signIn("password", { email: step.email, code: otp, flow: "email-verification" });
+      await signIn("password", {
+        email: step.email,
+        code: otp,
+        flow: "email-verification",
+      });
     } catch (err: any) {
       console.error("Email verification error:", err);
       setError(getErrorMessage(err));
@@ -193,7 +221,9 @@ export function LoginDialog({ open, onOpenChange, onSuccess, defaultMode = "sign
                 <AppLogo className="h-12 w-12" />
               </div>
               <CardTitle className="text-xl">
-                {mode === "signIn" ? "Login to your account" : "Create an account"}
+                {mode === "signIn"
+                  ? "Login to your account"
+                  : "Create an account"}
               </CardTitle>
               <CardDescription>
                 {mode === "signIn"
@@ -203,109 +233,123 @@ export function LoginDialog({ open, onOpenChange, onSuccess, defaultMode = "sign
             </CardHeader>
             <CardContent>
               {step === "form" ? (
-              <form onSubmit={handleSubmit}>
-                <div className="flex flex-col gap-6">
-                  {/* Error message */}
-                  {error && (
-                    <div className="flex items-start gap-2 p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg">
-                      <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                      <p>{error}</p>
-                    </div>
-                  )}
+                <form onSubmit={handleSubmit}>
+                  <div className="flex flex-col gap-6">
+                    {/* Error message */}
+                    {error && (
+                      <div className="flex items-start gap-2 p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg">
+                        <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                        <p>{error}</p>
+                      </div>
+                    )}
 
-                  {/* Name field (sign up only) */}
-                  {mode === "signUp" && (
+                    {/* Name field (sign up only) */}
+                    {mode === "signUp" && (
+                      <div className="grid gap-2">
+                        <Label htmlFor="dialog-name">Name</Label>
+                        <Input
+                          id="dialog-name"
+                          type="text"
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          placeholder="Your name"
+                          required={mode === "signUp"}
+                          disabled={isLoading}
+                        />
+                      </div>
+                    )}
+
+                    {/* Email field */}
                     <div className="grid gap-2">
-                      <Label htmlFor="dialog-name">Name</Label>
+                      <Label htmlFor="dialog-email">Email</Label>
                       <Input
-                        id="dialog-name"
-                        type="text"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="Your name"
-                        required={mode === "signUp"}
+                        id="dialog-email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="m@example.com"
+                        required
                         disabled={isLoading}
                       />
                     </div>
-                  )}
 
-                  {/* Email field */}
-                  <div className="grid gap-2">
-                    <Label htmlFor="dialog-email">Email</Label>
-                    <Input
-                      id="dialog-email"
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="m@example.com"
-                      required
-                      disabled={isLoading}
-                    />
-                  </div>
-
-                  {/* Password field */}
-                  <div className="grid gap-2">
-                    <div className="flex items-center">
-                      <Label htmlFor="dialog-password">Password</Label>
-                      {mode === "signIn" && (
-                        <a
-                          href="/reset-password"
-                          className="ml-auto inline-block text-sm underline-offset-4 hover:underline text-muted-foreground"
-                        >
-                          Forgot your password?
-                        </a>
-                      )}
+                    {/* Password field */}
+                    <div className="grid gap-2">
+                      <div className="flex items-center">
+                        <Label htmlFor="dialog-password">Password</Label>
+                        {mode === "signIn" && (
+                          <a
+                            href="/reset-password"
+                            className="ml-auto inline-block text-sm underline-offset-4 hover:underline text-muted-foreground"
+                          >
+                            Forgot your password?
+                          </a>
+                        )}
+                      </div>
+                      <Input
+                        id="dialog-password"
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        required
+                        disabled={isLoading}
+                      />
                     </div>
-                    <Input
-                      id="dialog-password"
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      required
-                      disabled={isLoading}
-                    />
-                  </div>
 
-                  {/* Submit button */}
-                  <div className="flex flex-col gap-3">
-                    <Button type="submit" disabled={isLoading} className="w-full">
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          {mode === "signIn" ? "Signing in..." : "Creating account..."}
-                        </>
-                      ) : mode === "signIn" ? (
-                        "Login"
-                      ) : (
-                        "Create account"
-                      )}
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      type="button"
-                      className="w-full"
-                      disabled={isLoading}
-                      onClick={() => void signIn("google")}
-                    >
-                      {mode === "signIn" ? "Login with Google" : "Sign up with Google"}
-                    </Button>
-
-                    {/* Switch mode link */}
-                    <p className="text-center text-sm text-muted-foreground">
-                      {mode === "signIn" ? "Don't have an account? " : "Already have an account? "}
-                      <button
-                        type="button"
-                        onClick={switchMode}
-                        className="underline underline-offset-4 hover:text-primary"
+                    {/* Submit button */}
+                    <div className="flex flex-col gap-3">
+                      <Button
+                        type="submit"
+                        disabled={isLoading}
+                        className="w-full"
                       >
-                        {mode === "signIn" ? "Sign up" : "Sign in"}
-                      </button>
-                    </p>
+                        {isLoading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            {mode === "signIn"
+                              ? "Signing in..."
+                              : "Creating account..."}
+                          </>
+                        ) : mode === "signIn" ? (
+                          "Login"
+                        ) : (
+                          "Create account"
+                        )}
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        type="button"
+                        className="w-full"
+                        disabled={isLoading}
+                        onClick={() =>
+                          void signIn("google", {
+                            redirectTo: redirectUrl,
+                          } as any)
+                        }
+                      >
+                        {mode === "signIn"
+                          ? "Login with Google"
+                          : "Sign up with Google"}
+                      </Button>
+
+                      {/* Switch mode link */}
+                      <p className="text-center text-sm text-muted-foreground">
+                        {mode === "signIn"
+                          ? "Don't have an account? "
+                          : "Already have an account? "}
+                        <button
+                          type="button"
+                          onClick={switchMode}
+                          className="underline underline-offset-4 hover:text-primary"
+                        >
+                          {mode === "signIn" ? "Sign up" : "Sign in"}
+                        </button>
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </form>
+                </form>
               ) : (
                 <form onSubmit={handleVerify} className="space-y-4">
                   {error && (
@@ -318,7 +362,8 @@ export function LoginDialog({ open, onOpenChange, onSuccess, defaultMode = "sign
                   <div className="space-y-2 text-center">
                     <p className="text-sm font-medium">Verify your email</p>
                     <p className="text-xs text-muted-foreground">
-                      Enter the 6-digit code sent to <span className="font-medium">{step.email}</span>
+                      Enter the 6-digit code sent to{" "}
+                      <span className="font-medium">{step.email}</span>
                     </p>
                   </div>
 
@@ -326,7 +371,11 @@ export function LoginDialog({ open, onOpenChange, onSuccess, defaultMode = "sign
                     <InputOTP value={otp} onChange={setOtp} />
                   </div>
 
-                  <Button type="submit" disabled={isLoading || otp.replace(/\D/g, "").length < 6} className="w-full">
+                  <Button
+                    type="submit"
+                    disabled={isLoading || otp.replace(/\D/g, "").length < 6}
+                    className="w-full"
+                  >
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
