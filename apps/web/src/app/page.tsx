@@ -2274,19 +2274,19 @@ function PropertyPanel({
 // Rotating headlines data
 const headlines = [
   {
-    line1: "Drag. Drop. Send.",
-    line2: "Email design made simple.",
-    highlight: "Send"
+    line1: "Assets to Emails.",
+    line2: "Marketing made seamless.",
+    highlight: "Emails"
   },
   {
-    line1: "The email builder",
-    line2: "you'll actually enjoy using.",
-    highlight: "enjoy"
+    line1: "Your brand, everywhere.",
+    line2: "One platform for assets & campaigns.",
+    highlight: "everywhere"
   },
   {
-    line1: "Let AI craft your emails.",
-    line2: "You just hit send.",
-    highlight: "AI"
+    line1: "AI-powered email marketing.",
+    line2: "Built on your brand assets.",
+    highlight: "AI-powered"
   }
 ];
 
@@ -2679,7 +2679,7 @@ export default function Home() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3, duration: 0.5 }}
             >
-              The visual email builder with AI superpowers. Create, iterate, and ship faster.
+              Manage your brand assets and create stunning email campaigns — all in one place.
             </motion.p>
             {/* CTA Buttons */}
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
