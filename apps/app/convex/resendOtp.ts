@@ -11,20 +11,33 @@ function generateNumericCode(length: number) {
   return out;
 }
 
+// Format the from address with sender name for better deliverability
+// Format: "Sender Name <email@domain.com>"
+function formatFromAddress(from: string, senderName: string): string {
+  // If already formatted with name, return as is
+  if (from.includes("<") && from.includes(">")) {
+    return from;
+  }
+  return `${senderName} <${from}>`;
+}
+
 async function sendResendEmail(params: {
   apiKey: string | undefined;
   from: string | undefined;
   to: string;
   subject: string;
   html: string;
+  senderName?: string;
 }) {
-  const { apiKey, from, to, subject, html } = params;
+  const { apiKey, from, to, subject, html, senderName = "drag.email" } = params;
   if (!apiKey) {
     throw new Error("Missing RESEND_API_KEY");
   }
   if (!from) {
     throw new Error("Missing RESEND_FROM");
   }
+
+  const formattedFrom = formatFromAddress(from, senderName);
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -33,7 +46,7 @@ async function sendResendEmail(params: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from,
+      from: formattedFrom,
       to,
       subject,
       html,

@@ -1,8 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// Format the from address with sender name for better deliverability
+// Format: "Sender Name <email@domain.com>"
+function formatFromAddress(from: string, senderName?: string): string {
+  // If already formatted with name, return as is
+  if (from.includes("<") && from.includes(">")) {
+    return from;
+  }
+  const name = senderName || "drag.email";
+  return `${name} <${from}>`;
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { to, from, subject, html } = await request.json();
+    const { to, from, subject, html, senderName } = await request.json();
 
     // Validate required fields
     if (!to || !from || !subject || !html) {
@@ -39,6 +50,9 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Format from address with sender name for better deliverability
+    const formattedFrom = formatFromAddress(from, senderName);
+
     // Send email using Resend
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -47,7 +61,7 @@ export async function POST(request: NextRequest) {
         Authorization: `Bearer ${resendApiKey}`,
       },
       body: JSON.stringify({
-        from,
+        from: formattedFrom,
         to: [to],
         subject,
         html,
