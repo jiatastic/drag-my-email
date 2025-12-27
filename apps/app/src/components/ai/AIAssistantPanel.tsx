@@ -398,9 +398,9 @@ export function AIAssistantPanel({ components, globalStyles, onApplyTemplate, on
           setMessages((prev) => [
             ...prev,
             {
-              id: `error-${Date.now()}`,
+              id: `auth-error-${Date.now()}`,
               role: "assistant",
-              content: `🔐 **Sign up / Log in to use AI Assistant for free!**\n\nCreate a free account to get 20 AI conversations per day.\n\n[👉 Sign up now](/signup) or [Log in](/login)`,
+              content: "__AUTH_REQUIRED__",
             },
           ]);
         } else {
@@ -656,6 +656,37 @@ export function AIAssistantPanel({ components, globalStyles, onApplyTemplate, on
               const isLastAssistantMessage = 
                 !isUser && index === chatMessages.length - 1;
               const isMessageStreaming = isLastAssistantMessage && isLoading;
+              
+              // Special case for auth required message
+              if (content === "__AUTH_REQUIRED__") {
+                return (
+                  <Message key={message.id} className="justify-start">
+                    <div className="max-w-[90%] rounded-2xl rounded-tl-md bg-muted/60 px-4 py-4 text-sm">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-lg">🔐</span>
+                        <span className="font-medium text-foreground">Sign up to use AI Assistant</span>
+                      </div>
+                      <p className="text-muted-foreground text-xs mb-3">
+                        Create a free account to get 20 AI conversations per day.
+                      </p>
+                      <div className="flex gap-2">
+                        <a
+                          href="/signup"
+                          className="inline-flex items-center justify-center rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+                        >
+                          Sign up free
+                        </a>
+                        <a
+                          href="/login"
+                          className="inline-flex items-center justify-center rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors"
+                        >
+                          Log in
+                        </a>
+                      </div>
+                    </div>
+                  </Message>
+                );
+              }
               
               return (
                 <Message
