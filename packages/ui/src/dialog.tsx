@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { cn } from "./utils";
 
 interface DialogContextValue {
@@ -99,6 +100,12 @@ const DialogContent = React.forwardRef<
 >(({ className, children, ...props }, ref) => {
   const context = React.useContext(DialogContext);
   if (!context) throw new Error("DialogContent must be used within Dialog");
+  const [mounted, setMounted] = React.useState(false);
+
+  // Wait for client-side mount
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Handle escape key
   React.useEffect(() => {
@@ -119,26 +126,37 @@ const DialogContent = React.forwardRef<
     };
   }, [context.open, context.onOpenChange]);
 
-  if (!context.open) return null;
+  if (!context.open || !mounted) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <DialogOverlay />
+  const dialogContent = (
+    <>
+      {/* Overlay - separate from flex container */}
       <div
-        ref={ref}
         className={cn(
-          // Relative to the flex container for proper centering
-          "relative z-50 w-full max-w-lg bg-background rounded-lg border",
-          "max-h-[85vh] overflow-y-auto p-6 animate-in fade-in-0 zoom-in-95",
-          className
+          "fixed inset-0 z-50 bg-black/50 backdrop-blur-sm",
+          "animate-in fade-in-0"
         )}
-        onClick={(e) => e.stopPropagation()}
-        {...props}
-      >
-        {children}
+        onClick={() => context.onOpenChange(false)}
+      />
+      {/* Centering container */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div
+          ref={ref}
+          className={cn(
+            "relative w-full max-w-lg bg-background rounded-lg border shadow-lg",
+            "max-h-[85vh] overflow-y-auto p-6 animate-in fade-in-0 zoom-in-95",
+            className
+          )}
+          onClick={(e) => e.stopPropagation()}
+          {...props}
+        >
+          {children}
+        </div>
       </div>
-    </div>
+    </>
   );
+
+  return createPortal(dialogContent, document.body);
 });
 DialogContent.displayName = "DialogContent";
 

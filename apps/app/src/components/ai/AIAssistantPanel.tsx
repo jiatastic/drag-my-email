@@ -389,16 +389,30 @@ export function AIAssistantPanel({ components, globalStyles, onApplyTemplate, on
         console.error("Failed to send message", err);
         // Remove the placeholder assistant message on error
         setMessages((prev) => prev.filter((msg) => msg.id !== assistantMsgId));
-        // Add error message with details
-        const errorMessage = err.message || "Sorry, I encountered an error. Please try again.";
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `error-${Date.now()}`,
-            role: "assistant",
-            content: `Error: ${errorMessage}\n\nFor Vercel AI Gateway, please check:\n1. AI_GATEWAY_API_KEY environment variable is set\n2. Network connection is stable\n3. API key is valid\n\nCheck server logs for more details.`,
-          },
-        ]);
+        
+        // Check if it's an authentication error
+        const errorMessage = err.message || "";
+        const isAuthError = errorMessage.toLowerCase().includes("not authenticated");
+        
+        if (isAuthError) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `error-${Date.now()}`,
+              role: "assistant",
+              content: `🔐 **Sign up / Log in to use AI Assistant for free!**\n\nCreate a free account to get 20 AI conversations per day.\n\n[👉 Sign up now](/signup) or [Log in](/login)`,
+            },
+          ]);
+        } else {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `error-${Date.now()}`,
+              role: "assistant",
+              content: `Sorry, something went wrong: ${errorMessage}\n\nPlease try again later.`,
+            },
+          ]);
+        }
       }
     } finally {
       setIsLoading(false);
