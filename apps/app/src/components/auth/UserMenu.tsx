@@ -112,7 +112,7 @@ export function UserMenu() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-64 bg-background border border-border rounded-lg shadow-lg py-1 z-50">
+        <div className="absolute right-0 top-full mt-2 w-64 bg-background border border-border rounded-lg py-1 z-50">
           <div className="px-3 py-2 border-b border-border">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium text-foreground">{userName}</p>

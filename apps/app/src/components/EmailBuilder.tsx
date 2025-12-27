@@ -390,7 +390,7 @@ export function EmailBuilder() {
                       onClick={() => setDeviceType("desktop")}
                       className={`p-2 rounded-md transition-colors ${
                         deviceType === "desktop" 
-                          ? "bg-background shadow-sm text-foreground" 
+                          ? "bg-background text-foreground" 
                           : "text-muted-foreground hover:text-foreground"
                       }`}
                       title="Desktop (full width)"
@@ -401,7 +401,7 @@ export function EmailBuilder() {
                       onClick={() => setDeviceType("mobile")}
                       className={`p-2 rounded-md transition-colors ${
                         deviceType === "mobile" 
-                          ? "bg-background shadow-sm text-foreground" 
+                          ? "bg-background text-foreground" 
                           : "text-muted-foreground hover:text-foreground"
                       }`}
                       title="Mobile (375px)"
@@ -416,7 +416,7 @@ export function EmailBuilder() {
                         onClick={() => setPreviewTab("preview")}
                         className={`p-2 rounded-md transition-colors ${
                           previewTab === "preview" 
-                            ? "bg-background shadow-sm text-foreground" 
+                            ? "bg-background text-foreground" 
                             : "text-muted-foreground hover:text-foreground"
                         }`}
                         title="Preview"
@@ -427,7 +427,7 @@ export function EmailBuilder() {
                         onClick={() => setPreviewTab("code")}
                         className={`p-2 rounded-md transition-colors ${
                           previewTab === "code" 
-                            ? "bg-background shadow-sm text-foreground" 
+                            ? "bg-background text-foreground" 
                             : "text-muted-foreground hover:text-foreground"
                         }`}
                         title="View Code"
@@ -528,7 +528,7 @@ export function EmailBuilder() {
       {/* Drag Overlay */}
       <DragOverlay dropAnimation={null}>
         {activeId ? (
-          <div className="bg-primary text-primary-foreground px-4 py-2 rounded-lg shadow-2xl flex items-center gap-2 text-sm font-medium">
+          <div className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium">
             <GripVertical className="h-4 w-4" />
             {activeId.toString().startsWith("palette-") ? (
               <span>{draggedType || "Component"}</span>

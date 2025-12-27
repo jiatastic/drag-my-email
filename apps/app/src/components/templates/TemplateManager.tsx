@@ -28,55 +28,31 @@ const categoryLabels: Record<string, string> = {
   notification: "Notification",
 };
 
-// Template ID to domain mapping for logo.dev
-const templateDomains: Record<string, string> = {
-  "aws-verify": "aws.com",
-  "linear-login": "linear.app",
-  "notion-magic-link": "notion.so",
-  "twitch-password-reset": "twitch.tv",
-  "airbnb-review": "airbnb.com",
-};
+// Google Favicon API helper - reliable and no CORS issues
+const getGoogleFavicon = (domain: string, size = 64) => 
+  `https://www.google.com/s2/favicons?domain=${domain}&sz=${size}`;
 
-// Default background colors for templates (can be enhanced with logo.dev describe API)
-const templateBgColors: Record<string, string> = {
-  "aws-verify": "#252f3d",
-  "linear-login": "#ffffff",
-  "notion-magic-link": "#ffffff",
-  "twitch-password-reset": "#9147ff",
-  "airbnb-review": "#ffffff",
-};
-
-// Generate logo.dev URL for a template
-const getLogoUrl = (templateId: string): string | null => {
-  const domain = templateDomains[templateId];
-  if (!domain) return null;
-  
-  // logo.dev API URL format: https://img.logo.dev/{domain}?size={size}&format={format}
-  // Size 96px (24 * 4) for better quality in the 40x40 container
-  return `https://img.logo.dev/${domain}?size=96&format=png`;
-};
-
-// Company logos for templates (using logo.dev API)
+// Template logos - using Google Favicon API for reliability
 const templateLogos: Record<string, { src: string; bg: string }> = {
   "aws-verify": {
-    src: getLogoUrl("aws-verify") || "",
-    bg: templateBgColors["aws-verify"],
+    src: getGoogleFavicon("aws.amazon.com", 64),
+    bg: "#232f3e",
   },
   "linear-login": {
-    src: getLogoUrl("linear-login") || "",
-    bg: templateBgColors["linear-login"],
+    src: getGoogleFavicon("linear.app", 64),
+    bg: "#5e6ad2",
   },
   "notion-magic-link": {
-    src: getLogoUrl("notion-magic-link") || "",
-    bg: templateBgColors["notion-magic-link"],
+    src: getGoogleFavicon("notion.so", 64),
+    bg: "#ffffff",
   },
   "twitch-password-reset": {
-    src: getLogoUrl("twitch-password-reset") || "",
-    bg: templateBgColors["twitch-password-reset"],
+    src: getGoogleFavicon("twitch.tv", 64),
+    bg: "#9147ff",
   },
   "airbnb-review": {
-    src: getLogoUrl("airbnb-review") || "",
-    bg: templateBgColors["airbnb-review"],
+    src: getGoogleFavicon("airbnb.com", 64),
+    bg: "#ff5a5f",
   },
 };
 
@@ -222,14 +198,15 @@ export function TemplateManager({ components, onLoadTemplate }: TemplateManagerP
                               style={{ backgroundColor: logo?.bg || "#ffffff" }}
                             >
                               {logo && logo.src && !hasLogoError ? (
+                                // eslint-disable-next-line @next/next/no-img-element
                                 <img 
                                   src={logo.src} 
                                   alt={template.name}
-                                  className="w-6 h-6 object-contain"
+                                  className="w-7 h-7 object-contain"
                                   onError={() => setLogoErrors(prev => ({ ...prev, [template.id]: true }))}
                                 />
                               ) : (
-                            <Mail className="h-4 w-4 text-muted-foreground" />
+                                <Mail className="h-4 w-4 text-muted-foreground" />
                               )}
                           </div>
                           <div className="flex-1 min-w-0">

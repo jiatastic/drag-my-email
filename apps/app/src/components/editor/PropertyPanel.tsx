@@ -235,7 +235,7 @@ function ToggleGroup({ value, onChange, options }: { value: string; onChange: (v
           onClick={() => onChange(opt.value)}
           className={`flex-1 px-2 py-1.5 rounded text-xs font-medium transition-all ${
             value === opt.value
-              ? "bg-background shadow-sm text-foreground"
+              ? "bg-background text-foreground"
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
@@ -648,7 +648,7 @@ export function PropertyPanel({ component, onUpdate, globalStyles, onUpdateGloba
                     getPropValue("showLineNumbers") !== false ? "bg-primary" : "bg-muted"
                   }`}
                 >
-                  <div className={`w-4 h-4 bg-background rounded-full shadow transition-transform ${
+                  <div className={`w-4 h-4 bg-background rounded-full transition-transform ${
                     getPropValue("showLineNumbers") !== false ? "translate-x-4" : "translate-x-0.5"
                   }`} />
                 </button>

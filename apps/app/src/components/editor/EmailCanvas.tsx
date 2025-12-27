@@ -25,7 +25,7 @@ import {
   Button,
   Label,
 } from "@react-email-builder/ui";
-import { Mail, GripVertical, Trash2, Layers, Eye, Plus, Send, Loader2, CheckCircle2, AlertCircle, LogIn } from "lucide-react";
+import { Mail, GripVertical, Trash2, Layers, Eye, Plus, Send, Loader2, CheckCircle2, AlertCircle, LogIn, X } from "lucide-react";
 import { LayersPanel } from "./LayersPanel";
 import type { DeviceType } from "../EmailBuilder";
 import { useEffect, useState, useRef, Fragment, useMemo, useCallback } from "react";
@@ -509,20 +509,24 @@ function DraggableEmailItem({
   // Get content to display
   const getContent = () => {
     if (component.type === "Image") {
-      const imageStyle = { ...componentStyle, display: "block" };
       const textAlign = componentStyle.textAlign || "center";
+      // For block images, use margin to align (text-align doesn't work on block elements)
+      const alignmentMargin = textAlign === "center" ? "0 auto" : textAlign === "right" ? "0 0 0 auto" : "0";
+      const imageStyle = { 
+        ...componentStyle, 
+        display: "block",
+        margin: alignmentMargin,
+        maxWidth: "100%",
+      };
       
-      // Apply alignment by wrapping in a container with text-align
       return (
-        <div style={{ textAlign: textAlign as any, width: "100%" }}>
-          <img
-            src={component.props?.src || ""}
-            alt={component.props?.alt || ""}
-            width={component.props?.width}
-            height={component.props?.height}
-            style={imageStyle}
-          />
-        </div>
+        <img
+          src={component.props?.src || ""}
+          alt={component.props?.alt || ""}
+          width={component.props?.width}
+          height={component.props?.height}
+          style={imageStyle}
+        />
       );
     }
     if (component.type === "Hr" || component.type === "Divider") {
@@ -1476,7 +1480,7 @@ function DraggableEmailItem({
         {/* Floating toolbar on hover/select */}
         <div
           className={cn(
-            "absolute -top-7 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-blue-500 text-white rounded px-2 py-1 text-xs font-medium transition-opacity z-20 whitespace-nowrap shadow-lg pointer-events-auto",
+            "absolute -top-7 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-blue-500 text-white rounded px-2 py-1 text-xs font-medium transition-opacity z-20 whitespace-nowrap pointer-events-auto",
             showToolbar ? "opacity-100" : "opacity-0 pointer-events-none"
           )}
         >
@@ -1874,6 +1878,13 @@ export function EmailCanvas({
       {/* Send Email Dialog */}
       <Dialog open={sendDialogOpen} onOpenChange={setSendDialogOpen}>
         <DialogContent className="sm:max-w-md">
+          <button
+            className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            onClick={() => setSendDialogOpen(false)}
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </button>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Mail className="h-5 w-5" />
@@ -2059,7 +2070,7 @@ export function EmailCanvas({
             {/* Email Body */}
             <div
               className={cn(
-                "border border-t-0 border-border rounded-b-lg shadow-sm overflow-hidden",
+                "border border-t-0 border-border rounded-b-lg overflow-hidden",
                 "flex-1",
                 isOver && "ring-2 ring-primary/50 ring-inset"
               )}

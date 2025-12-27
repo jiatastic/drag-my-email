@@ -2614,7 +2614,7 @@ export default function Home() {
                   <Sparkles className="w-3 h-3 text-white" />
                 </span>
                 <span className="text-sm font-semibold text-[#0f172a]">
-                  Generate beautiful emails with AI
+                  Create stunning marketing assets
                 </span>
                 <ArrowRight className="w-4 h-4 text-primary group-hover:translate-x-0.5 transition-transform" />
               </button>

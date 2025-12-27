@@ -28,6 +28,7 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
+  Textarea,
 } from "@react-email-builder/ui";
 import {
   ExternalLink,
@@ -40,6 +41,12 @@ import {
   Upload,
   Image as ImageIcon,
   Check,
+  X,
+  Download,
+  Maximize2,
+  Send,
+  FileImage,
+  Calendar,
 } from "lucide-react";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
@@ -124,6 +131,23 @@ function getClearbitLogoUrl(domain: string, size = 256) {
   return `https://logo.clearbit.com/${domain}?size=${size}`;
 }
 
+/**
+ * Get the best available favicon/logo URL for a brand
+ */
+function getBrandFaviconUrl(brand: any): string | null {
+  const metadata = safeJsonParse<any>(brand?.metadataJson);
+  const branding = safeJsonParse<BrandingProfile>(brand?.metadataJson);
+  
+  // Try various sources for favicon/logo
+  return (
+    branding?.images?.favicon ||
+    branding?.images?.logo ||
+    metadata?.favicon ||
+    metadata?.icon ||
+    (brand?.domain ? getGoogleFaviconUrl(brand.domain, 64) : null)
+  );
+}
+
 export default function AssetsPage() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const settings = useQuery(api.userSettings.get);
@@ -200,6 +224,11 @@ export default function AssetsPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [selectedUploadedImageIds, setSelectedUploadedImageIds] = useState<string[]>([]);
+
+  // Asset detail modal state
+  const [selectedAsset, setSelectedAsset] = useState<any | null>(null);
+  const [editPrompt, setEditPrompt] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
 
   // Queries and mutations for uploaded images
   const uploadedImages = useQuery(
@@ -430,11 +459,24 @@ export default function AssetsPage() {
                     <SelectValue placeholder={brands && brands.length === 0 ? "No brands" : "Select brand"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {(brands ?? []).map((b: any) => (
-                      <SelectItem key={b._id} value={b._id}>
-                        {b.name}
-                      </SelectItem>
-                    ))}
+                    {(brands ?? []).map((b: any) => {
+                      const faviconUrl = getBrandFaviconUrl(b);
+                      return (
+                        <SelectItem key={b._id} value={b._id}>
+                          <div className="flex items-center gap-2">
+                            {faviconUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={faviconUrl} alt="" className="h-4 w-4 rounded object-contain" />
+                            ) : (
+                              <div className="h-4 w-4 rounded bg-muted flex items-center justify-center text-[8px] font-medium text-muted-foreground">
+                                {b.name?.charAt(0)?.toUpperCase() || "?"}
+                              </div>
+                            )}
+                            <span>{b.name}</span>
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
@@ -448,7 +490,7 @@ export default function AssetsPage() {
                 size="sm" 
                 onClick={() => setImportOpen(true)} 
                 disabled={!isAuthenticated || !canImportMore}
-                className="shadow-sm hover:shadow transition-shadow"
+                className="transition-colors"
               >
                 <Plus className="mr-2 h-4 w-4" />
                 New Brand
@@ -482,11 +524,24 @@ export default function AssetsPage() {
                   <SelectValue placeholder={brands && brands.length === 0 ? "No brands" : "Brand"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {(brands ?? []).map((b: any) => (
-                    <SelectItem key={b._id} value={b._id}>
-                      {b.name}
-                    </SelectItem>
-                  ))}
+                  {(brands ?? []).map((b: any) => {
+                    const faviconUrl = getBrandFaviconUrl(b);
+                    return (
+                      <SelectItem key={b._id} value={b._id}>
+                        <div className="flex items-center gap-2">
+                          {faviconUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={faviconUrl} alt="" className="h-4 w-4 rounded object-contain" />
+                          ) : (
+                            <div className="h-4 w-4 rounded bg-muted flex items-center justify-center text-[8px] font-medium text-muted-foreground">
+                              {b.name?.charAt(0)?.toUpperCase() || "?"}
+                            </div>
+                          )}
+                          <span>{b.name}</span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -498,9 +553,16 @@ export default function AssetsPage() {
 
         {/* Import dialog */}
         <Dialog open={importOpen} onOpenChange={setImportOpen}>
-          <DialogContent className="sm:max-w-lg border-border/50 shadow-xl">
-                <DialogHeader className="space-y-3">
-                  <DialogTitle className="text-xl font-bold">Import a brand</DialogTitle>
+          <DialogContent className="sm:max-w-lg border-border/50">
+            <button
+              className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              onClick={() => setImportOpen(false)}
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </button>
+            <DialogHeader className="space-y-3">
+              <DialogTitle className="text-xl font-bold">Import a brand</DialogTitle>
                   <DialogDescription className="text-base leading-relaxed">
                     Paste a public website URL. We'll fetch brand colors, fonts and logos using Firecrawl.
                   </DialogDescription>
@@ -585,7 +647,7 @@ export default function AssetsPage() {
                       }
                     }}
                     disabled={importing || !importUrl.trim()}
-                    className="shadow-sm hover:shadow transition-shadow"
+                    className="transition-colors"
                   >
                     {importing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {importing ? "Importing..." : "Import"}
@@ -596,7 +658,14 @@ export default function AssetsPage() {
 
         {/* Generate dialog */}
         <Dialog open={generateOpen} onOpenChange={setGenerateOpen}>
-          <DialogContent className="sm:max-w-2xl border-border/50 shadow-xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-2xl border-border/50 max-h-[90vh] overflow-y-auto">
+            <button
+              className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              onClick={() => setGenerateOpen(false)}
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </button>
             <DialogHeader className="space-y-3">
               <DialogTitle className="text-xl font-bold">Create marketing asset</DialogTitle>
               <DialogDescription className="text-base leading-relaxed">
@@ -610,7 +679,7 @@ export default function AssetsPage() {
                 <Card className="border-border/50 bg-gradient-to-br from-muted/30 to-muted/10">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-4">
-                      <div className="h-12 w-12 shrink-0 rounded-xl border border-border/50 bg-background overflow-hidden flex items-center justify-center shadow-sm">
+                      <div className="h-12 w-12 shrink-0 rounded-xl border border-border/50 bg-background overflow-hidden flex items-center justify-center ">
                         {selectedFaviconUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={selectedFaviconUrl} alt="favicon" className="h-10 w-10 object-contain p-1" />
@@ -626,7 +695,7 @@ export default function AssetsPage() {
                         {branding?.colors && Object.entries(branding.colors).slice(0, 4).map(([k, hex]) => (
                           <div
                             key={k}
-                            className="h-6 w-6 rounded-lg border border-border/50 shadow-sm"
+                            className="h-6 w-6 rounded-lg border border-border/50 "
                             style={{ backgroundColor: hex }}
                             title={hex}
                           />
@@ -1166,7 +1235,7 @@ export default function AssetsPage() {
                   }
                 }}
                 disabled={generating || !selectedBrandId}
-                className="shadow-sm hover:shadow transition-shadow"
+                className="transition-colors"
               >
                 {generating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {generating ? "Generating..." : "Generate"}
@@ -1175,9 +1244,182 @@ export default function AssetsPage() {
           </DialogContent>
         </Dialog>
 
+        {/* Asset Detail Modal */}
+        <Dialog open={!!selectedAsset} onOpenChange={(open) => !open && setSelectedAsset(null)}>
+          <DialogContent className="sm:max-w-5xl max-h-[90vh] p-0 overflow-hidden border-border/50 ">
+            {selectedAsset && (() => {
+              const imageUrl = selectedAsset.imageUrl || getFirstImageUrlFromResultJson(selectedAsset.resultJson);
+              const createdDate = new Date(selectedAsset.createdAt).toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+              
+              return (
+                <div className="flex flex-col lg:flex-row h-full max-h-[85vh]">
+                  {/* Left: Image Preview */}
+                  <div className="flex-1 bg-muted/30 flex items-center justify-center p-4 lg:p-6 min-h-[300px] lg:min-h-0">
+                    {imageUrl ? (
+                      <div className="relative w-full h-full flex items-center justify-center">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img 
+                          src={imageUrl} 
+                          alt={selectedAsset.type} 
+                          className="max-w-full max-h-[60vh] object-contain rounded-lg "
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center text-muted-foreground">
+                        <FileImage className="h-16 w-16 mb-3 opacity-50" />
+                        <span>No preview available</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Right: Details & Edit */}
+                  <div className="w-full lg:w-[380px] border-t lg:border-t-0 lg:border-l border-border/50 flex flex-col bg-background">
+                    {/* Header */}
+                    <div className="p-4 border-b border-border/50">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-semibold text-lg capitalize">
+                          {selectedAsset.type.replace(/_/g, " ")}
+                        </h3>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => setSelectedAsset(null)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                        selectedAsset.status === "succeeded" 
+                          ? "bg-green-500/10 text-green-600 dark:text-green-400"
+                          : selectedAsset.status === "failed"
+                          ? "bg-destructive/10 text-destructive"
+                          : "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"
+                      }`}>
+                        {selectedAsset.status}
+                      </div>
+                    </div>
+                    
+                    {/* Metadata */}
+                    <div className="p-4 space-y-3 border-b border-border/50">
+                      <div className="flex items-center gap-3 text-sm">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Created:</span>
+                        <span className="font-medium">{createdDate}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-sm">
+                        <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Type:</span>
+                        <span className="font-medium capitalize">{selectedAsset.type.replace(/_/g, " ")}</span>
+                      </div>
+                    </div>
+                    
+                    {/* Actions */}
+                    {imageUrl && (
+                      <div className="p-4 border-b border-border/50 flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => {
+                            navigator.clipboard.writeText(imageUrl);
+                            setCopiedKey("modal-url");
+                            setTimeout(() => setCopiedKey(null), 2000);
+                          }}
+                        >
+                          {copiedKey === "modal-url" ? (
+                            <Check className="h-4 w-4 mr-2" />
+                          ) : (
+                            <Copy className="h-4 w-4 mr-2" />
+                          )}
+                          Copy URL
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          asChild
+                        >
+                          <a href={imageUrl} target="_blank" rel="noreferrer" download>
+                            <Download className="h-4 w-4 mr-2" />
+                            Download
+                          </a>
+                        </Button>
+                      </div>
+                    )}
+                    
+                    {/* Original Prompt */}
+                    <div className="p-4 border-b border-border/50 flex-shrink-0">
+                      <Label className="text-xs text-muted-foreground mb-2 block">Original Prompt</Label>
+                      <ScrollArea className="h-24 rounded-md border border-border/50 bg-muted/30 p-2">
+                        <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                          {selectedAsset.prompt || "No prompt available"}
+                        </p>
+                      </ScrollArea>
+                    </div>
+                    
+                    {/* Edit with AI */}
+                    <div className="p-4 flex-1 flex flex-col">
+                      <Label className="text-sm font-medium mb-2">Edit with AI</Label>
+                      <p className="text-xs text-muted-foreground mb-3">
+                        Describe changes you want to make to this image.
+                      </p>
+                      <Textarea
+                        placeholder="e.g., Change background to sunset, make colors warmer..."
+                        value={editPrompt}
+                        onChange={(e) => setEditPrompt(e.target.value)}
+                        className="flex-1 min-h-[80px] resize-none text-sm"
+                      />
+                      <Button
+                        className="mt-3 w-full"
+                        disabled={!editPrompt.trim() || isEditing}
+                        onClick={async () => {
+                          if (!editPrompt.trim() || !selectedBrandId) return;
+                          setIsEditing(true);
+                          try {
+                            await generateAsset({
+                              brandId: selectedBrandId as any,
+                              type: selectedAsset.type,
+                              promptOverrides: `Based on the previous image, make these changes: ${editPrompt}`,
+                            });
+                            setEditPrompt("");
+                            setSelectedAsset(null);
+                          } catch (err: any) {
+                            setGenerateError(err.message || "Failed to generate");
+                          } finally {
+                            setIsEditing(false);
+                          }
+                        }}
+                      >
+                        {isEditing ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="h-4 w-4 mr-2" />
+                            Generate Variation
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </DialogContent>
+        </Dialog>
+
         {/* Empty state (visual onboarding) */}
         {!isLoading && isAuthenticated && !hasBrands && (
-          <Card className="overflow-hidden border-border/50 shadow-lg">
+          <Card className="overflow-hidden border-border/50 ">
             <CardContent className="p-8 sm:p-10">
               <div className="grid gap-10 lg:grid-cols-[400px_1fr]">
                 <div className="space-y-6">
@@ -1191,7 +1433,7 @@ export default function AssetsPage() {
                     <Button 
                       onClick={() => setImportOpen(true)} 
                       disabled={!canImportMore} 
-                      className="w-full h-11 text-base shadow-md hover:shadow-lg transition-all"
+                      className="w-full h-11 text-base hover:border-border transition-all"
                       size="lg"
                     >
                       <Plus className="mr-2 h-5 w-5" />
@@ -1219,7 +1461,7 @@ export default function AssetsPage() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-border/50 bg-gradient-to-br from-muted/20 via-background to-muted/10 p-5 sm:p-6 shadow-inner">
+                <div className="rounded-2xl border border-border/50 bg-gradient-to-br from-muted/20 via-background to-muted/10 p-5 sm:p-6 ">
                   <div className="mb-4 flex items-center justify-between">
                     <div className="text-sm font-semibold">Gallery Preview</div>
                     <div className="text-xs text-muted-foreground">Generated from your brand</div>
@@ -1230,8 +1472,8 @@ export default function AssetsPage() {
                       <div
                         key={tile.url}
                         className={[
-                          "group relative overflow-hidden rounded-xl border border-border/50 bg-muted/30 shadow-sm transition-all duration-300",
-                          "hover:-translate-y-1 hover:shadow-lg hover:border-border",
+                          "group relative overflow-hidden rounded-xl border border-border/50 bg-muted/30  transition-all duration-300",
+                          "hover:-translate-y-1 hover: hover:border-border",
                           tile.aspect,
                           tile.colSpan ?? "",
                         ].join(" ")}
@@ -1274,7 +1516,7 @@ export default function AssetsPage() {
 
                         {tile.label && (
                           <div className="absolute left-3 bottom-3">
-                            <span className="inline-flex items-center rounded-lg border border-border/50 bg-background/90 px-2.5 py-1 text-[11px] font-semibold text-foreground shadow-md backdrop-blur-sm">
+                            <span className="inline-flex items-center rounded-lg border border-border/50 bg-background/90 px-2.5 py-1 text-[11px] font-semibold text-foreground  backdrop-blur-sm">
                               {tile.label}
                             </span>
                           </div>
@@ -1289,7 +1531,7 @@ export default function AssetsPage() {
         )}
 
         {(isLoading || (!isAuthenticated && !isLoading)) && (
-          <Card className="border-border/50 shadow-sm">
+          <Card className="border-border/50 ">
             <CardContent className="p-12 text-center">
               {!isAuthenticated ? (
                 <div className="space-y-2">
@@ -1314,10 +1556,10 @@ export default function AssetsPage() {
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-[360px_1fr]">
             {/* Left: Brand identity sidebar */}
             <aside className="lg:sticky lg:top-8 self-start">
-              <Card className="overflow-hidden border-border/50 shadow-lg">
+              <Card className="overflow-hidden border-border/50 ">
                 <CardContent className="p-6">
                   <div className="flex items-start gap-4">
-                    <div className="h-16 w-16 shrink-0 rounded-xl border border-border/50 bg-muted/40 overflow-hidden flex items-center justify-center shadow-sm">
+                    <div className="h-16 w-16 shrink-0 rounded-xl border border-border/50 bg-muted/40 overflow-hidden flex items-center justify-center ">
                       {selectedFaviconUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={selectedFaviconUrl} alt="favicon" className="h-14 w-14 object-contain p-1" />
@@ -1343,7 +1585,7 @@ export default function AssetsPage() {
                       size="sm" 
                       onClick={() => setGenerateOpen(true)} 
                       disabled={!hasSelectedBrand}
-                      className="flex-1 shadow-sm hover:shadow transition-shadow"
+                      className="flex-1 transition-colors"
                     >
                       <Sparkles className="mr-2 h-4 w-4" />
                       Create Asset
@@ -1374,7 +1616,7 @@ export default function AssetsPage() {
                             .map(([k, hex]) => (
                               <div
                                 key={k}
-                                className="group relative h-7 w-7 rounded-lg border border-border/50 shadow-sm transition-all hover:scale-110 hover:shadow-md hover:z-10"
+                                className="group relative h-7 w-7 rounded-lg border border-border/50  transition-all hover:scale-110 hover: hover:z-10"
                                 style={{ backgroundColor: hex }}
                                 title={`${k}: ${hex}`}
                               >
@@ -1399,7 +1641,7 @@ export default function AssetsPage() {
                             .map((name) => (
                               <span 
                                 key={name} 
-                                className="text-xs rounded-lg border border-border/50 bg-muted/30 px-3 py-1.5 font-medium text-foreground shadow-sm"
+                                className="text-xs rounded-lg border border-border/50 bg-muted/30 px-3 py-1.5 font-medium text-foreground "
                               >
                                 {name}
                               </span>
@@ -1444,7 +1686,7 @@ export default function AssetsPage() {
                         <TabsContent value="preview" className="mt-4">
                           <div className="rounded-lg border border-border/50 bg-gradient-to-br from-muted/30 to-muted/10 p-5">
                             <div className="mb-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Favicon</div>
-                            <div className="h-28 w-full rounded-lg border border-border/50 bg-background overflow-hidden flex items-center justify-center shadow-sm">
+                            <div className="h-28 w-full rounded-lg border border-border/50 bg-background overflow-hidden flex items-center justify-center ">
                               {selectedFaviconUrl ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img
@@ -1561,7 +1803,7 @@ export default function AssetsPage() {
                   <Button 
                     onClick={() => setGenerateOpen(true)} 
                     disabled={!hasSelectedBrand}
-                    className="shadow-sm hover:shadow transition-shadow"
+                    className="transition-colors"
                   >
                     <Sparkles className="mr-2 h-4 w-4" />
                     Create Asset
@@ -1569,9 +1811,160 @@ export default function AssetsPage() {
                 </div>
               </div>
 
+              <div>
+                {!assets ? (
+                  <Card className="border-border/50">
+                    <CardContent className="p-12 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">Loading assets...</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : assets.length === 0 ? (
+                  <Card className="border-dashed border-2 border-border/50 bg-gradient-to-br from-muted/20 to-background">
+                    <CardContent className="p-12 text-center">
+                      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-border/50 bg-gradient-to-br from-primary/10 to-primary/5">
+                        <Sparkles className="h-8 w-8 text-primary" />
+                      </div>
+                      <div className="mt-6 text-base font-semibold">No assets yet</div>
+                      <div className="mt-2 text-sm text-muted-foreground max-w-md mx-auto">
+                        Generate your first hero, banner, or social asset to build your visual library.
+                      </div>
+                      <div className="mt-8 flex flex-wrap justify-center gap-3">
+                        <Button
+                          variant={assetType === "hero" ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => {
+                            setAssetType("hero");
+                            setGenerateOpen(true);
+                          }}
+                          className="min-w-[110px] transition-colors"
+                        >
+                          Hero
+                        </Button>
+                        <Button
+                          variant={assetType === "banner" ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => {
+                            setAssetType("banner");
+                            setGenerateOpen(true);
+                          }}
+                          className="min-w-[110px] transition-colors"
+                        >
+                          Banner
+                        </Button>
+                        <Button
+                          variant={assetType === "social_post" ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => {
+                            setAssetType("social_post");
+                            setGenerateOpen(true);
+                          }}
+                          className="min-w-[110px] transition-colors"
+                        >
+                          Social Post
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="columns-1 gap-5 sm:columns-2 xl:columns-3">
+                    {assets.map((a: any) => {
+                      // Prefer imageUrl from query (Convex storage), fallback to legacy resultJson parsing
+                      const imageUrl = a.imageUrl || getFirstImageUrlFromResultJson(a.resultJson);
+                      const isBusy = a.status === "queued" || a.status === "running";
+                      const isFailed = a.status === "failed";
+                      return (
+                        <div key={a._id} className="mb-5 break-inside-avoid">
+                          <Card 
+                            className="overflow-hidden border-border/50 hover:border-border transition-all duration-300 group cursor-pointer"
+                            onClick={() => setSelectedAsset(a)}
+                          >
+                            <div className="relative">
+                              <div className="absolute left-3 top-3 z-10 rounded-lg bg-black/70 backdrop-blur-sm px-3 py-1.5 text-[11px] font-semibold text-white ">
+                                {a.type.replace(/_/g, " ")}
+                              </div>
+                              <button
+                                type="button"
+                                className="absolute right-3 top-3 z-10 rounded-lg bg-black/60 backdrop-blur-sm p-2 text-white hover:bg-black/80 transition-all  opacity-0 group-hover:opacity-100"
+                                title="Remove asset"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  if (!confirm("Remove this asset?")) return;
+                                  await removeAsset({ id: a._id });
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+
+                              <div className="bg-gradient-to-br from-muted/40 to-muted/20">
+                                {imageUrl ? (
+                                  <div className="relative overflow-hidden">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img 
+                                      src={imageUrl} 
+                                      alt={a.type} 
+                                      className="w-full h-auto transition-transform duration-500 group-hover:scale-[1.02]" 
+                                      style={{ display: "block" }}
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/5 to-transparent pointer-events-none" />
+                                  </div>
+                                ) : (
+                                  <div className="flex h-64 items-center justify-center">
+                                    <span className="text-sm text-muted-foreground">No preview</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {isBusy && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+                                  <div className="flex items-center gap-2 rounded-xl bg-black/80 px-4 py-2 text-sm font-medium text-white ">
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    Generating…
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            <CardContent className="p-4 space-y-3">
+                              <div className="flex items-center justify-between">
+                                <div className={`text-xs font-medium ${isFailed ? "text-destructive" : "text-muted-foreground"}`}>
+                                  {a.status}
+                                </div>
+                              </div>
+
+                              {imageUrl && (
+                                <a
+                                  className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline transition-colors"
+                                  href={imageUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  Open / Download <ExternalLink className="h-3.5 w-3.5" />
+                                </a>
+                              )}
+
+                              {a.error && (
+                                <TruncatedText
+                                  text={a.error}
+                                  maxLines={3}
+                                  textClassName="text-sm text-destructive"
+                                />
+                              )}
+                            </CardContent>
+                          </Card>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
               {/* Uploaded Product Images Section */}
               {hasSelectedBrand && (
-                <div className="mb-8">
+                <div className="mt-12 pt-8 border-t">
                   <div className="flex items-center justify-between gap-4 mb-4">
                     <div className="flex items-center gap-2">
                       <ImageIcon className="h-5 w-5 text-muted-foreground" />
@@ -1669,152 +2062,6 @@ export default function AssetsPage() {
                   )}
                 </div>
               )}
-
-              <div>
-                {!assets ? (
-                  <Card className="border-border/50">
-                    <CardContent className="p-12 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">Loading assets...</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ) : assets.length === 0 ? (
-                  <Card className="border-dashed border-2 border-border/50 bg-gradient-to-br from-muted/20 to-background">
-                    <CardContent className="p-12 text-center">
-                      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-border/50 bg-gradient-to-br from-primary/10 to-primary/5">
-                        <Sparkles className="h-8 w-8 text-primary" />
-                      </div>
-                      <div className="mt-6 text-base font-semibold">No assets yet</div>
-                      <div className="mt-2 text-sm text-muted-foreground max-w-md mx-auto">
-                        Generate your first hero, banner, or social asset to build your visual library.
-                      </div>
-                      <div className="mt-8 flex flex-wrap justify-center gap-3">
-                        <Button
-                          variant={assetType === "hero" ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => {
-                            setAssetType("hero");
-                            setGenerateOpen(true);
-                          }}
-                          className="min-w-[110px] shadow-sm hover:shadow transition-shadow"
-                        >
-                          Hero
-                        </Button>
-                        <Button
-                          variant={assetType === "banner" ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => {
-                            setAssetType("banner");
-                            setGenerateOpen(true);
-                          }}
-                          className="min-w-[110px] shadow-sm hover:shadow transition-shadow"
-                        >
-                          Banner
-                        </Button>
-                        <Button
-                          variant={assetType === "social_post" ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => {
-                            setAssetType("social_post");
-                            setGenerateOpen(true);
-                          }}
-                          className="min-w-[110px] shadow-sm hover:shadow transition-shadow"
-                        >
-                          Social Post
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <div className="columns-1 gap-5 sm:columns-2 xl:columns-3">
-                    {assets.map((a: any) => {
-                      // Prefer imageUrl from query (Convex storage), fallback to legacy resultJson parsing
-                      const imageUrl = a.imageUrl || getFirstImageUrlFromResultJson(a.resultJson);
-                      const isBusy = a.status === "queued" || a.status === "running";
-                      const isFailed = a.status === "failed";
-                      return (
-                        <div key={a._id} className="mb-5 break-inside-avoid">
-                          <Card className="overflow-hidden border-border/50 shadow-md hover:shadow-lg transition-all duration-300 group">
-                            <div className="relative">
-                              <div className="absolute left-3 top-3 z-10 rounded-lg bg-black/70 backdrop-blur-sm px-3 py-1.5 text-[11px] font-semibold text-white shadow-lg">
-                                {a.type.replace(/_/g, " ")}
-                              </div>
-                              <button
-                                type="button"
-                                className="absolute right-3 top-3 z-10 rounded-lg bg-black/60 backdrop-blur-sm p-2 text-white hover:bg-black/80 transition-all shadow-lg opacity-0 group-hover:opacity-100"
-                                title="Remove asset"
-                                onClick={async () => {
-                                  if (!confirm("Remove this asset?")) return;
-                                  await removeAsset({ id: a._id });
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-
-                              <div className="bg-gradient-to-br from-muted/40 to-muted/20">
-                                {imageUrl ? (
-                                  <div className="relative overflow-hidden">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img 
-                                      src={imageUrl} 
-                                      alt={a.type} 
-                                      className="w-full h-auto transition-transform duration-500 group-hover:scale-[1.02]" 
-                                      style={{ display: "block" }}
-                                    />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/5 to-transparent pointer-events-none" />
-                                  </div>
-                                ) : (
-                                  <div className="flex h-64 items-center justify-center">
-                                    <span className="text-sm text-muted-foreground">No preview</span>
-                                  </div>
-                                )}
-                              </div>
-
-                              {isBusy && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-                                  <div className="flex items-center gap-2 rounded-xl bg-black/80 px-4 py-2 text-sm font-medium text-white shadow-xl">
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                    Generating…
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-
-                            <CardContent className="p-4 space-y-3">
-                              <div className="flex items-center justify-between">
-                                <div className={`text-xs font-medium ${isFailed ? "text-destructive" : "text-muted-foreground"}`}>
-                                  {a.status}
-                                </div>
-                              </div>
-
-                              {imageUrl && (
-                                <a
-                                  className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline transition-colors"
-                                  href={imageUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                >
-                                  Open / Download <ExternalLink className="h-3.5 w-3.5" />
-                                </a>
-                              )}
-
-                              {a.error && (
-                                <TruncatedText
-                                  text={a.error}
-                                  maxLines={3}
-                                  textClassName="text-sm text-destructive"
-                                />
-                              )}
-                            </CardContent>
-                          </Card>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
             </div>
           </div>
         )}
