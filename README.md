@@ -8,7 +8,8 @@
 <h1 align="center">Drag</h1>
 
 <p align="center">
-  A drag-and-drop email builder powered by <a href="https://react.email">React Email</a>, with AI-assisted generation/editing and code export.
+  <strong>Drag</strong> &mdash; The AI-native email marketing studio.<br/>
+  Effortlessly build and brand stunning emails and marketing assets with AI-assisted workflows and drag-and-drop editing.
 </p>
 
 <p align="center">
