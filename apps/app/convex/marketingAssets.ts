@@ -210,28 +210,82 @@ const STYLE_PRESETS: Record<string, {
   },
 };
 
-// Build JSON structured prompt for FLUX.2 [pro]
-// This format provides precise control over complex generations
-interface JsonPrompt {
-  scene: string;
-  subjects: Array<{
-    type: string;
-    description: string;
-    position: "foreground" | "midground" | "background";
-  }>;
-  style: string;
-  color_palette: string[];
-  lighting: string;
-  mood: string;
-  composition: string;
-  camera: {
-    angle: string;
-    distance: string;
-    lens: string;
-  };
+// Helper: Convert hex color to a natural language description using HSL analysis
+// This works for ANY color, not just predefined ones
+function hexToColorDescription(hex: string): string {
+  // Parse RGB
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  
+  // Convert to HSL
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  
+  let h = 0;
+  let s = 0;
+  
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      case b: h = ((r - g) / d + 4) / 6; break;
+    }
+  }
+  
+  const hue = h * 360;
+  const saturation = s * 100;
+  const lightness = l * 100;
+  
+  // Handle achromatic colors (grays, black, white)
+  if (saturation < 10) {
+    if (lightness > 95) return "pure white";
+    if (lightness > 85) return "off-white";
+    if (lightness > 70) return "light gray";
+    if (lightness > 50) return "medium gray";
+    if (lightness > 25) return "dark gray";
+    if (lightness > 10) return "charcoal";
+    return "pure black";
+  }
+  
+  // Determine base color from hue
+  let baseColor = "";
+  if (hue < 15 || hue >= 345) baseColor = "red";
+  else if (hue < 45) baseColor = "orange";
+  else if (hue < 70) baseColor = "yellow";
+  else if (hue < 150) baseColor = "green";
+  else if (hue < 195) baseColor = "cyan";
+  else if (hue < 260) baseColor = "blue";
+  else if (hue < 290) baseColor = "purple";
+  else if (hue < 345) baseColor = "pink";
+  
+  // Add lightness modifier
+  let lightnessModifier = "";
+  if (lightness > 80) lightnessModifier = "light ";
+  else if (lightness > 65) lightnessModifier = "soft ";
+  else if (lightness < 25) lightnessModifier = "deep ";
+  else if (lightness < 40) lightnessModifier = "dark ";
+  
+  // Add saturation modifier for vivid/muted
+  let saturationModifier = "";
+  if (saturation > 80) saturationModifier = "vibrant ";
+  else if (saturation > 60 && !lightnessModifier) saturationModifier = "bright ";
+  else if (saturation < 30) saturationModifier = "muted ";
+  
+  // Combine: prefer saturation modifier over lightness for vivid colors
+  const modifier = saturationModifier || lightnessModifier;
+  
+  return `${modifier}${baseColor}`.trim();
 }
 
-function buildJsonPrompt(params: {
+// Build natural language prompt optimized for Seedream v4.5
+// This provides better AI creative freedom while maintaining brand coherence
+
+function buildNaturalPrompt(params: {
   brandName: string;
   type: string;
   stylePreset?: string;
@@ -245,206 +299,161 @@ function buildJsonPrompt(params: {
   const spec = ASSET_TYPE_SPECS[params.type] || ASSET_TYPE_SPECS.hero;
   const preset = params.stylePreset ? STYLE_PRESETS[params.stylePreset] : STYLE_PRESETS.brand_strict;
 
-  // Only use brand colors for brand-focused presets (let creative modes have full freedom)
-  const brandFocusedPresets = ["brand_strict", "product_hero", "minimal_modern"];
-  const shouldUseBrandColors = brandFocusedPresets.includes(params.stylePreset || "brand_strict");
-
-  const colorPalette: string[] = [];
-  if (shouldUseBrandColors && params.brandColors) {
-    // Add "hex" prefix for FLUX.2 color recognition
-    Object.entries(params.brandColors).slice(0, 5).forEach(([_, hex]) => {
-      if (typeof hex === "string" && hex.startsWith("#")) {
-        colorPalette.push(`hex ${hex}`);
-      }
-    });
+  // Build soft color guidance (not strict constraints)
+  // Colors are suggestions, not requirements - AI has creative freedom
+  let colorGuidance = "";
+  if (params.brandColors && Object.keys(params.brandColors).length > 0) {
+    const colorDescriptions = Object.entries(params.brandColors)
+      .slice(0, 3) // Limit to primary colors only
+      .map(([name, hex]) => {
+        if (typeof hex === "string" && hex.startsWith("#")) {
+          return hexToColorDescription(hex);
+        }
+        return null;
+      })
+      .filter(Boolean);
+    
+    if (colorDescriptions.length > 0) {
+      // Soft guidance: "primarily use" instead of "must use"
+      colorGuidance = `Color palette: primarily use ${colorDescriptions.join(" and ")} tones, but feel free to add complementary colors for visual interest.`;
+    }
   }
-  // Creative presets (gradient_abstract, cinematic_3d, editorial_photo) have no color constraints
 
-  // Build scene description
-  let sceneDescription = spec.description;
+  // Build brand context
+  let brandContext = "";
   if (params.summary) {
-    const shortSummary = params.summary.length > 100 
-      ? params.summary.slice(0, 100) + "..." 
+    const shortSummary = params.summary.length > 120 
+      ? params.summary.slice(0, 120) + "..." 
       : params.summary;
-    sceneDescription += `. Brand context: ${shortSummary}`;
+    brandContext = `Brand: ${params.brandName}. ${shortSummary}`;
+  } else {
+    brandContext = `Brand: ${params.brandName}.`;
   }
 
-  // Build subject based on asset type
-  const subjects: JsonPrompt["subjects"] = [];
-  
-  if (params.type === "product_detail" || params.type === "product_showcase") {
-    // E-commerce product posters
-    // Note: Product image reference will be added in the final prompt construction
-    // Default to English unless specifically requested
-    
-    if (params.type === "product_detail") {
-      subjects.push({
-        type: "Product detail poster",
-        description: `Professional 9:16 vertical premium product detail poster for ${params.brandName}. Clean Apple minimalist style with elegant typography. Glass morphism or 3D embossed text effects. Professional studio quality with clear visual hierarchy and generous whitespace. Background should follow the selected style preset (not hardcoded).`,
-        position: "foreground",
-      });
-    } else if (params.type === "product_showcase") {
-      subjects.push({
-        type: "Product showcase poster",
-        description: `Professional 9:16 vertical product showcase poster for ${params.brandName}. Clean minimalist layout with color swatches, size guide, or feature highlights. Flat, high-end aesthetic. Elegant typography with professional product presentation. Background should follow the selected style preset (not hardcoded).`,
-        position: "foreground",
-      });
-    }
-  } else if (params.type === "hero") {
-    subjects.push({
-      type: "Marketing visual",
-      description: `Premium ${params.brandName} brand imagery with professional finish`,
-      position: "midground",
-    });
-  } else if (params.type === "banner") {
-    subjects.push({
-      type: "Banner graphic",
-      description: `Clean promotional banner for ${params.brandName} with brand colors`,
-      position: "midground",
-    });
-  } else if (params.type === "social_post") {
-    subjects.push({
-      type: "Social media content",
-      description: `Eye-catching ${params.brandName} branded content for social feeds`,
-      position: "foreground",
-    });
-  } else if (params.type === "logo_variant") {
-    subjects.push({
-      type: "Abstract brand element",
-      description: `Geometric brand mark inspired by ${params.brandName} identity`,
-      position: "foreground",
-    });
-  } else if (params.type === "storyboard_grid") {
-    subjects.push({
-      type: "Storyboard grid",
-      description:
-        "3x3 cinematic storyboard grid for a luxury e-commerce fashion campaign. One consistent model across all panels, same outfit, same lighting, same identity. Clear shot labels for each panel and consistent gutters. Use the selected style preset for overall look and background (do not hardcode warm/cream backgrounds). Model should have photorealistic features: natural skin texture with visible pores and subtle imperfections, authentic expressions with natural facial asymmetry, realistic eye detail with proper catchlights, natural hair with individual strand visibility. Avoid plastic/airbrushed/doll-like appearance.",
-      position: "foreground",
-    });
-  }
+  // Asset-specific descriptions (optimized for Seedream v4.5)
+  // Each description is detailed enough for quality generation but in natural language
+  const assetDescriptions: Record<string, string> = {
+    hero: `Premium 16:9 marketing hero image for ${params.brandName}. 
+${preset.style}. ${preset.mood} mood. 
+Professional finish with clear visual hierarchy and impactful composition.
+Suitable for website headers and landing pages.`,
 
-  // Enhanced style for e-commerce mode
-  let finalStyle = preset.style;
-  let finalLighting = preset.lighting;
-  let finalMood = preset.mood;
-  
-  // Check if user provided a custom background override in promptOverrides
-  // Format: "Background: <custom description>" at the start of promptOverrides
-  let userCustomBackground: string | null = null;
-  let cleanedPromptOverrides = params.promptOverrides?.trim() || "";
-  
-  const backgroundMatch = cleanedPromptOverrides.match(/^Background:\s*(.+?)(?:\n\n|$)/i);
-  if (backgroundMatch) {
-    userCustomBackground = backgroundMatch[1].trim();
-    // Remove the background line from promptOverrides to avoid duplication
-    cleanedPromptOverrides = cleanedPromptOverrides.replace(/^Background:\s*.+?(?:\n\n|$)/i, "").trim();
-  }
-  
-  // Use user's custom background if provided, otherwise use preset
-  const finalBackground = userCustomBackground || preset.background ||
-    "Clean studio background (white or light gray) with optional subtle brand tint; do not force a warm cream/champagne look";
-  
-  if (params.type === "product_detail" || params.type === "product_showcase") {
-    // Keep e-commerce-specific direction, but do NOT override the background into a single hardcoded warm palette.
-    // Use stylePreset to control the background look and overall aesthetic.
-    finalStyle = `${preset.style}. Professional e-commerce product photography, premium product presentation, elegant typography with glass morphism or 3D embossed text effects, generous whitespace. Background: ${finalBackground}.`;
-    finalLighting = `Professional studio soft lighting shot on Phase One IQ4 or Hasselblad H6D, controlled highlights with gentle shadow falloff, natural diffusion through large softbox, high-end fashion photography quality, realistic texture rendering with natural skin tones, subtle catchlights in reflective surfaces`;
-    finalMood = `Premium, trustworthy, sophisticated, clean, professional, high-end retail aesthetic`;
-    
-    // Add product features if provided
-    if (params.productFeatures && params.productFeatures.length > 0) {
-      const featuresText = params.productFeatures.slice(0, 5).join(", ");
-      sceneDescription += `. Key product features: ${featuresText}`;
-    }
-  }
+    banner: `Clean 3:1 promotional banner for ${params.brandName}. 
+Modern design with clear visual hierarchy and balanced composition.
+Optimized for email headers and web advertisements.
+Text should be readable and prominent. Professional marketing aesthetic.`,
 
-  // Construct the JSON prompt
-  const jsonPrompt: JsonPrompt = {
-    scene: sceneDescription,
-    subjects,
-    style: finalStyle,
-    color_palette: colorPalette,
-    lighting: finalLighting,
-    mood: finalMood,
-    composition: preset.composition,
-    camera: spec.cameraSettings,
+    social_post: `Eye-catching 1:1 square social media content for ${params.brandName}. 
+Engaging, scroll-stopping design optimized for Instagram, LinkedIn, and Twitter.
+Bold visual impact with clear messaging. Modern and shareable aesthetic.
+Professional yet approachable brand presentation.`,
+
+    logo_variant: `Abstract 1:1 square brand element inspired by ${params.brandName} identity. 
+Geometric, modern design suitable for app icons and profile pictures.
+Clean, memorable, and scalable. Minimal complexity for small display sizes.
+Professional brand mark with distinctive character.`,
+
+    product_detail: `Professional 9:16 vertical product detail poster for ${params.brandName}. 
+Apple-style minimalist aesthetic with elegant typography.
+Glass morphism or 3D embossed text effects for premium feel.
+Professional studio quality with clear visual hierarchy and generous whitespace.
+High-end e-commerce presentation with focus on product features.`,
+
+    product_showcase: `Professional 9:16 vertical product showcase poster for ${params.brandName}. 
+Clean minimalist layout highlighting key product features.
+May include color swatches, size guides, or feature callouts.
+Flat, high-end aesthetic with elegant typography.
+Premium retail presentation with professional product photography style.`,
+
+    storyboard_grid: `Cinematic 3x3 storyboard grid for ${params.brandName} campaign.
+CRITICAL: One consistent model across ALL 9 panels - same face, same identity, same outfit.
+Premium fashion editorial style inspired by Annie Leibovitz photography.
+Clear panel layout with consistent gutters. Each panel shows different angle/pose.
+Photorealistic with natural skin texture, authentic expressions, realistic lighting.
+Avoid: AI artifacts, inconsistent faces, plastic skin, doll-like appearance.`,
   };
 
-  // Build final prompt
-  let finalPrompt: string;
+  const assetDescription = assetDescriptions[params.type] || assetDescriptions.hero;
+
+  // Build the natural language prompt
+  const promptParts: string[] = [];
   
-  if (params.type === "product_detail" || params.type === "product_showcase") {
-    // For e-commerce, use detailed professional prompt format
-    const jsonStr = JSON.stringify(jsonPrompt, null, 2);
-    
-    if (params.ecommerceMode === "detailed") {
-      // Detailed mode: Full professional prompt with all specifications
-      // Note: Image reference is passed separately via image_url parameter, not in prompt
-      
-      finalPrompt = `Professional 9:16 vertical premium e-commerce product poster for ${params.brandName}.
+  const userPrompt = params.promptOverrides?.trim() || "";
+  const userPromptLength = userPrompt.length;
+  
+  // Determine how much system content to add based on user prompt detail level
+  // If user provides detailed prompt (>100 chars), reduce system additions
+  // If user provides very detailed prompt (>200 chars), minimize system additions
+  const isUserPromptDetailed = userPromptLength > 100;
+  const isUserPromptVeryDetailed = userPromptLength > 200;
 
-Technical specifications:
-- Format: 9:16 vertical portrait, high resolution
-- Style: Apple minimalist, clean studio photography
-- Background: ${finalBackground}
-- Typography: Elegant, glass morphism or 3D embossed text effects, unified style but varied layouts
-- Product presentation: Professional studio quality, clear visual hierarchy, premium finish
-- Camera: ${spec.cameraSettings.lens} lens, ${spec.cameraSettings.angle} angle, ${spec.cameraSettings.distance}
-- Lighting: ${finalLighting}
-- Mood: ${finalMood}
+  // 1. User's custom prompt ALWAYS takes top priority (most important for AI)
+  if (userPrompt) {
+    promptParts.push(userPrompt);
+  }
 
-Detailed JSON specification:
-${jsonStr}
+  // 2. Core asset description (skip if user provided very detailed prompt)
+  if (!isUserPromptVeryDetailed) {
+    promptParts.push(assetDescription);
+  }
 
-Negative prompt: cluttered, busy, multiple patterns, harsh shadows, watermark, messy text, low quality, blurry, AI-generated artifacts, distorted text, poor typography, inconsistent style, Chinese characters, Asian text. For any human elements: plastic skin, airbrushed face, doll-like appearance, uncanny valley, dead eyes, fake smile, stiff pose, wax figure look, CGI appearance, overprocessed skin, extra fingers, distorted hands`;
-    } else {
-      // Simple mode: Concise prompt with JSON structure
-      finalPrompt = `9:16 vertical premium product poster, Apple minimalist style, elegant typography, clean studio background. Background: ${finalBackground}. Generous whitespace. Specification: ${jsonStr}`;
-    }
+  // 3. Brand context (always include - it's important for brand consistency)
+  promptParts.push(brandContext);
+
+  // 4. Soft color guidance (include unless user's prompt mentions colors)
+  const userMentionsColors = /color|colour|#[0-9a-f]{3,6}|rgb|blue|red|green|yellow|purple|orange|pink|black|white|gray|grey/i.test(userPrompt);
+  if (colorGuidance && !userMentionsColors) {
+    promptParts.push(colorGuidance);
+  }
+
+  // 5. Style and technical specs (reduced if user is detailed)
+  if (!isUserPromptDetailed) {
+    const technicalSpecs = [
+      `Style: ${preset.style}.`,
+      `Lighting: ${preset.lighting}.`,
+      `Composition: ${preset.composition}.`,
+    ].join(" ");
+    promptParts.push(technicalSpecs);
   } else {
-    if (params.type === "storyboard_grid") {
-      // Storyboard mode: add explicit grid requirements while keeping it flexible via promptOverrides.
-      // Keep background dynamic via style preset.
-      // Enhanced with realistic portrait photography techniques to reduce AI artifacts
-      finalPrompt = `Generate a 3x3 cinematic storyboard grid, shot on Canon EOS R5 with varied lenses (24mm to 200mm across panels).
-
-Global constraints:
-- One consistent model across all panels (same identity/face, same outfit, same hair and makeup)
-- Consistent lighting across all panels: ${finalLighting}
-- Background: ${finalBackground}
-- Tone: premium fashion editorial, luxury e-commerce style, inspired by Annie Leibovitz and Mario Testino photography
-- Typography: minimal, only shot labels if included; avoid extra decorative text
-
-Portrait realism requirements:
-- Photorealistic skin texture with natural pores, fine lines, and subtle imperfections (not plastic or airbrushed)
-- Natural skin tones with realistic subsurface scattering
-- Authentic candid expressions with natural asymmetry
-- Realistic eye catchlights and iris detail
-- Natural hair with individual strand visibility
-- Genuine body language and posture
-
-Technical photography specifications:
-- Shallow depth of field with natural bokeh in close-up panels
-- Realistic light falloff and soft shadows
-- Film grain texture similar to Kodak Portra 400 or Fuji Pro 400H
-- Natural color grading, avoid oversaturation
-
-Specification:
-${JSON.stringify(jsonPrompt, null, 2)}
-
-Negative prompt: plastic skin, airbrushed face, symmetrical face, perfect skin, doll-like appearance, uncanny valley, dead eyes, fake smile, stiff pose, wax figure look, CGI appearance, overprocessed, HDR overdone, inconsistent face, different person, multiple identities, face drift, extra limbs, distorted hands, extra fingers, broken grid layout, misaligned panels, unreadable labels, messy text, watermark, low quality, blurry, artifacts`;
-    } else {
-      // Standard mode: JSON structure
-      finalPrompt = JSON.stringify(jsonPrompt, null, 2);
-    }
+    // Just add minimal style hint
+    promptParts.push(`Style hint: ${preset.mood} mood.`);
   }
+
+  // 6. Product features (for e-commerce - always include if provided)
+  if ((params.type === "product_detail" || params.type === "product_showcase") && params.productFeatures?.length) {
+    const features = params.productFeatures.slice(0, 5).join(", ");
+    promptParts.push(`Key features: ${features}.`);
+  }
+
+  // 7. Camera specs (skip if user provided very detailed prompt)
+  if (!isUserPromptVeryDetailed) {
+    promptParts.push(`Camera: ${spec.cameraSettings.lens} lens, ${spec.cameraSettings.angle} angle, ${spec.cameraSettings.distance}.`);
+  }
+
+  // 8. Negative prompt for quality control (always include)
+  const negativePrompt = "Avoid: cluttered, busy, low quality, blurry, watermark, messy text, AI artifacts, distorted text.";
   
-  // If user provides custom prompt overrides (excluding the background which is already applied), prepend them
-  if (cleanedPromptOverrides) {
-    finalPrompt = `${cleanedPromptOverrides}\n\n${finalPrompt}`;
-  }
+  // Combine all parts with proper spacing
+  let finalPrompt = promptParts.join("\n\n");
+  finalPrompt += `\n\n${negativePrompt}`;
 
   return finalPrompt;
+}
+
+// Legacy function name for backwards compatibility
+function buildJsonPrompt(params: {
+  brandName: string;
+  type: string;
+  stylePreset?: string;
+  brandColors?: Record<string, string>;
+  summary?: string;
+  promptOverrides?: string;
+  productImageUrls?: string[];
+  ecommerceMode?: "simple" | "detailed";
+  productFeatures?: string[];
+}): string {
+  // Now uses natural language format optimized for Seedream v4.5
+  return buildNaturalPrompt(params);
 }
 
 // Call fal.ai API using official client
