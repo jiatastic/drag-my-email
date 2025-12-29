@@ -1,16 +1,39 @@
-# React Email Builder
+<p align="center">
+  <img
+    alt="Drag banner"
+    src="https://shiny-fennec-807.convex.cloud/api/storage/bde30790-f97d-4ecd-80eb-6b91bd79b3d2"
+  />
+</p>
 
-![React Email Builder banner](https://shiny-fennec-807.convex.cloud/api/storage/bde30790-f97d-4ecd-80eb-6b91bd79b3d2)
+<h1 align="center">Drag</h1>
 
-A drag-and-drop email builder powered by [React Email](https://react.email), with AI-assisted generation/editing and code export. Built as a Bun + Turborepo monorepo.
+<p align="center">
+  A drag-and-drop email builder powered by <a href="https://react.email">React Email</a>, with AI-assisted generation/editing and code export.
+</p>
+
+<p align="center">
+  <a href="./">Website</a>
+  ·
+  <a href="./issues">Issues</a>
+</p>
+
+<p align="center">
+  <img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" />
+  <img alt="Monorepo" src="https://img.shields.io/badge/monorepo-Turborepo-black" />
+  <img alt="Runtime" src="https://img.shields.io/badge/runtime-Bun-black" />
+  <img alt="Backend" src="https://img.shields.io/badge/backend-Convex-black" />
+</p>
+
+Built as a Bun + Turborepo monorepo.
 
 ## Features
 
-- **Drag & drop editor**: compose emails from React Email components
-- **Live preview + props panel**: edit component props in real time
-- **Code export**: copy JSX / HTML output
-- **Auth + templates backend**: powered by [Convex](https://www.convex.dev) (including Convex Auth)
-- **Brand tools (optional)**: import brand identity via Firecrawl + generate marketing images via fal.ai
+- **Drag & drop editor**: compose emails from React Email components with drag & drap and AI assistant
+- **Brand tools**: import brand identity via Firecrawl + generate marketing stunning market assets via fal.ai
+
+## About
+
+Drag helps you build production-ready marketing and even transactional emails with a component-based editor, then export clean JSX/HTML.
 
 ## Project structure
 
@@ -23,7 +46,7 @@ A drag-and-drop email builder powered by [React Email](https://react.email), wit
 ├── packages/
 │   ├── ui/                  # Shared UI components (shadcn)
 │   ├── email/               # React Email templates/utilities
-│   └── ...                  # analytics / jobs / kv / logger / (legacy/future) supabase
+│   └── ...                  # analytics / jobs / kv / logger / (legacy/
 ├── env.example              # Example env vars (see per-app env.example too)
 ├── turbo.json               # Turborepo config
 └── README.md
@@ -128,4 +151,4 @@ bun check      # biome check --write
 
 ## License
 
-MIT — see `LICENSE`.
+AGPL-3.0 — see `LICENSE`.
