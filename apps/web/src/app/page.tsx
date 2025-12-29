@@ -51,6 +51,8 @@ import {
   ListOrdered,
   LayoutGrid,
   Megaphone,
+  Globe,
+  Wand2,
 } from "lucide-react";
 
 interface EmailComponent {
@@ -2379,6 +2381,9 @@ export default function Home() {
   const [headlineIndex, setHeadlineIndex] = useState(0);
   const [isTemplateGalleryReady, setIsTemplateGalleryReady] = useState(false);
   const loadedTemplateSrcsRef = useRef<Set<string>>(new Set());
+  
+  // Demo generation state - URL input for redirect to app
+  const [demoUrl, setDemoUrl] = useState("");
 
   // Rotate headlines every 4 seconds
   useEffect(() => {
@@ -2563,6 +2568,21 @@ export default function Home() {
     el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  // Demo generation - redirect to app with URL parameter
+  const handleDemoGenerate = () => {
+    if (!demoUrl.trim()) return;
+
+    // Always prepend https:// since the input already shows the prefix
+    const normalizedUrl = `https://${demoUrl.trim().replace(/^https?:\/\//i, "")}`;
+
+    // Redirect to app's demo generation page
+    const baseUrl = getAppBaseUrl();
+    const demoPageUrl = new URL("/demo", baseUrl || (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"));
+    demoPageUrl.searchParams.set("url", normalizedUrl);
+    
+    window.location.href = demoPageUrl.toString();
+  };
+
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="bg-white h-[100svh] overflow-y-auto scroll-smooth snap-y snap-mandatory scroll-pt-28">
@@ -2681,23 +2701,71 @@ export default function Home() {
             >
               Manage your brand assets and create stunning email campaigns — all in one place.
             </motion.p>
-            {/* CTA Buttons */}
-            <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+
+            {/* Demo Generation Input - Unified Component */}
+            <motion.div
+              className="mt-8 max-w-xl mx-auto"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4, duration: 0.5 }}
+            >
+              <div className="relative flex items-center bg-white rounded-full border border-gray-200 shadow-lg hover:shadow-xl transition-shadow focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent">
+                {/* https:// prefix */}
+                <span className="pl-4 pr-1 text-gray-400 text-sm font-medium select-none whitespace-nowrap">
+                  https://
+                </span>
+                {/* URL Input */}
+                <input
+                  type="text"
+                  value={demoUrl}
+                  onChange={(e) => {
+                    // Remove any http:// or https:// prefix if user pastes full URL
+                    let value = e.target.value;
+                    value = value.replace(/^https?:\/\//i, "");
+                    setDemoUrl(value);
+                  }}
+                  placeholder="your-website.com"
+                  className="flex-1 py-4 pr-2 text-base bg-transparent focus:outline-none placeholder:text-gray-400"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleDemoGenerate();
+                    }
+                  }}
+                />
+                {/* Generate Button - Inside */}
+                <button
+                  type="button"
+                  onClick={handleDemoGenerate}
+                  disabled={!demoUrl.trim()}
+                  className="flex items-center justify-center gap-2 rounded-full bg-primary m-1.5 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Wand2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Generate</span>
+                </button>
+              </div>
+              <p className="mt-3 text-xs text-gray-500 text-center">
+                We&apos;ll analyze your brand and create 2 marketing assets + a product launch email
+              </p>
+            </motion.div>
+
+            {/* Secondary CTA */}
+            <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
               <button
                 type="button"
                 onClick={handleLoginClick}
-                className="flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm sm:text-base font-semibold text-white hover:bg-primary/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                className="flex items-center justify-center gap-2 text-sm font-medium text-gray-500 hover:text-primary transition-colors"
               >
-                Start for free
+                Already have an account? Log in
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </button>
+              <span className="hidden sm:inline text-gray-300">|</span>
               <button
                 type="button"
                 onClick={handleTryItClick}
                 aria-label="Scroll to the in-page editor"
-                className="flex items-center justify-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm sm:text-base font-semibold text-[#14171a] border border-gray-200 hover:bg-gray-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                className="flex items-center justify-center gap-2 text-sm font-medium text-gray-500 hover:text-primary transition-colors"
               >
-                Try the editor
+                Or try the editor below
                 <ChevronDown className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
