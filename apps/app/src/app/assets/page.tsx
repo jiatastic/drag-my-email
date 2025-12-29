@@ -1386,7 +1386,10 @@ export default function AssetsPage() {
                             await generateAsset({
                               brandId: selectedBrandId as any,
                               type: selectedAsset.type,
-                              promptOverrides: `Based on the previous image, make these changes: ${editPrompt}`,
+                              promptOverrides: `Original prompt: ${selectedAsset.prompt || "No original prompt"}
+
+Edit instructions: ${editPrompt}`,
+                              productImageUrls: selectedAsset.imageUrl ? [selectedAsset.imageUrl] : undefined,
                             });
                             setEditPrompt("");
                             setSelectedAsset(null);
