@@ -1,125 +1,131 @@
 # React Email Builder
 
-A drag-and-drop email builder using React Email components, AI-powered generation, and code export. Built with Next.js 15, React 19, and Turborepo.
+![React Email Builder banner](https://shiny-fennec-807.convex.cloud/api/storage/bde30790-f97d-4ecd-80eb-6b91bd79b3d2)
 
-## Project Structure
+A drag-and-drop email builder powered by [React Email](https://react.email), with AI-assisted generation/editing and code export. Built as a Bun + Turborepo monorepo.
+
+## Features
+
+- **Drag & drop editor**: compose emails from React Email components
+- **Live preview + props panel**: edit component props in real time
+- **Code export**: copy JSX / HTML output
+- **Auth + templates backend**: powered by [Convex](https://www.convex.dev) (including Convex Auth)
+- **Brand tools (optional)**: import brand identity via Firecrawl + generate marketing images via fal.ai
+
+## Project structure
 
 ```
 .
-├── apps/                              # App workspace
-│   ├── api/                           # Supabase (API, Auth, Storage, Edge Functions)
-│   ├── app/                           # Main product - Email Builder
-│   └── web/                           # Marketing site (coming soon)
-├── packages/                          # Shared packages between apps
-│   ├── analytics/                     # OpenPanel analytics
-│   ├── email/                         # React email templates
-│   ├── jobs/                          # Trigger.dev background jobs
-│   ├── kv/                            # Upstash rate-limited key-value storage
-│   ├── logger/                        # Logger library
-│   ├── supabase/                      # Supabase - Queries, Mutations, Clients
-│   └── ui/                            # Shared UI components (shadcn)
-├── tooling/                           # Shared configuration
-│   └── typescript/                    # Shared TypeScript configuration
-├── biome.json                         # Biome configuration
-├── turbo.json                         # Turbo configuration
+├── apps/
+│   ├── app/                 # Main product - Email Builder (Next.js)
+│   ├── web/                 # Marketing / waitlist site (Next.js)
+│   └── api/                 # Reserved (currently empty)
+├── packages/
+│   ├── ui/                  # Shared UI components (shadcn)
+│   ├── email/               # React Email templates/utilities
+│   └── ...                  # analytics / jobs / kv / logger / (legacy/future) supabase
+├── env.example              # Example env vars (see per-app env.example too)
+├── turbo.json               # Turborepo config
 └── README.md
 ```
 
-## Tech Stack
+## Tech stack
 
 - **Runtime**: [Bun](https://bun.sh)
 - **Monorepo**: [Turborepo](https://turbo.build)
-- **Framework**: [Next.js 15](https://nextjs.org) (App Router)
-- **React**: React 19
-- **Styling**: [Tailwind CSS](https://tailwindcss.com) + [shadcn/ui](https://ui.shadcn.com) (Twitter Theme)
-- **Email**: [@react-email/components](https://react.email)
-- **Drag & Drop**: [@dnd-kit](https://dndkit.com)
-- **Database**: [Supabase](https://supabase.com)
-- **Linting**: [Biome](https://biomejs.dev)
+- **Apps**: [Next.js](https://nextjs.org) (App Router) + React 19
+- **Email**: `@react-email/components` + `@react-email/render`
+- **Drag & drop**: `@dnd-kit/*`
+- **Backend/Auth**: [Convex](https://www.convex.dev) + `@convex-dev/auth`
+- **Email sending**: [Resend](https://resend.com) (optional)
+- **AI**: [Vercel AI SDK](https://sdk.vercel.ai) + Vercel AI Gateway (optional)
+- **Lint/format**: [Biome](https://biomejs.dev)
 
-## Getting Started
+## Quickstart (local)
 
-### Prerequisites
-
-- [Bun](https://bun.sh) >= 1.3.0
-
-### Installation
+### 1) Install dependencies
 
 ```bash
-# Install dependencies
 bun install
-
-# Run the app in development mode
-bun dev:app
-
-# Or run all apps
-bun dev
 ```
 
-### Development
+### 2) Configure environment variables
+
+This repo includes `env.example` files you can copy locally:
 
 ```bash
-# Run only the email builder app
-bun dev:app
-
-# Run the marketing website (when implemented)
-bun dev:web
-
-# Build all apps
-bun build
-
-# Lint all apps
-bun lint
-
-# Format code
-bun format
+cp apps/app/env.example apps/app/.env.local
+cp apps/web/env.example apps/web/.env.local
 ```
 
-## Apps
+Convex environment variables are separate (set in Convex Dashboard or via CLI). See:
 
-### `apps/app` - Email Builder
+- `apps/app/convex/env.example`
 
-The main product - a drag-and-drop email builder with:
+### 3) Start Convex (required for the builder app)
 
-- **Component Palette**: Drag React Email components (Button, Text, Image, Heading, etc.)
-- **Canvas Editor**: Drop zone with live preview and component selection
-- **Property Panel**: Edit component properties in real-time
-- **Code Export**: View and copy React JSX or HTML code
-- **Template Management**: Save and load email templates
+In one terminal:
 
-#### Brand assets (`/assets`)
+```bash
+cd apps/app
+bunx convex dev
+```
 
-The app includes an `/assets` page that lets users:
+### 4) Start the Next.js apps
 
-- Import a brand identity profile via Firecrawl (`branding`, optionally `summary` / `screenshot`)
-- Generate marketing images via fal.ai with flux-2-flex (JSON prompts, precise image sizes, commercial use)
-- Use the selected brand context to guide AI email and image generation
+In another terminal from the repo root:
 
-Required environment variables (server-side / Convex actions):
+```bash
+# Builder (http://localhost:3000)
+bun dev:app
 
-- `FIRECRAWL_API_KEY`: Firecrawl API key (used by `apps/app/convex/brands.ts`)
-- `FAL_KEY`: fal.ai API key for flux-2-flex image generation (used by `apps/app/convex/marketingAssets.ts`) - Get your key at https://fal.ai/dashboard/keys
+# Marketing (http://localhost:3001)
+# bun dev:web
+```
 
-### `apps/web` - Marketing Site (Coming Soon)
+## Environment variables (what goes where)
 
-Landing page and marketing website for the product.
+There are **two runtimes** for the builder:
 
-### `apps/api` - Supabase Backend (Coming Soon)
+- **Next.js runtime**: `apps/app/.env.local` (browser + Next routes)
+- **Convex runtime**: set via Convex Dashboard / CLI (Convex functions + Convex Auth)
 
-API routes, authentication, and database operations.
+### Next.js (`apps/app/.env.local`)
 
-## Packages
+- **`NEXT_PUBLIC_CONVEX_URL`**: required (your deployment URL, e.g. `https://<name>.convex.cloud`)
+- **`NEXT_PUBLIC_APP_URL`**: recommended (defaults to `http://localhost:3000`)
+- **`AI_GATEWAY_API_KEY`**: required for AI assistant features
+- **`RESEND_API_KEY`**: optional (enables sending emails from `/api/send-email`; otherwise it logs)
 
-| Package | Description |
-|---------|-------------|
-| `@react-email-builder/ui` | Shared UI components (shadcn with Twitter theme) |
-| `@react-email-builder/email` | React Email templates and utilities |
-| `@react-email-builder/supabase` | Supabase client, queries, and mutations |
-| `@react-email-builder/analytics` | OpenPanel analytics integration |
-| `@react-email-builder/jobs` | Trigger.dev background jobs |
-| `@react-email-builder/kv` | Upstash rate-limited key-value storage |
-| `@react-email-builder/logger` | Logging utilities |
+### Convex (Dashboard / CLI)
+
+See `apps/app/convex/env.example`. Common ones:
+
+- **`CONVEX_SITE_URL`**: required by Convex Auth config (typically `http://localhost:3000` for local)
+- **`JWT_PRIVATE_KEY`**: required by Convex Auth
+- **`RESEND_API_KEY`** + **`RESEND_FROM`**: required for OTP verification / password reset emails
+- **`FIRECRAWL_API_KEY`**: optional (brand import on `/assets`)
+- **`FAL_KEY`**: optional (marketing image generation on `/assets`)
+
+To generate JWT keys locally:
+
+```bash
+cd apps/app
+bun run generate-jwt-keys
+```
+
+## Scripts
+
+```bash
+bun dev        # dev all apps
+bun dev:app    # dev builder only
+bun dev:web    # dev marketing only
+bun build      # build all
+bun lint       # lint all
+bun format     # biome format
+bun check      # biome check --write
+```
 
 ## License
 
-MIT
+MIT — see `LICENSE`.
