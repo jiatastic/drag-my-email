@@ -122,6 +122,16 @@
     font-family: var(--font-sans);
   }
 
+  ::selection {
+    background-color: oklch(0.6726 0.2904 341.4084 / 0.25);
+    color: var(--foreground);
+  }
+
+  .dark ::selection {
+    background-color: oklch(0.6726 0.2904 341.4084 / 0.35);
+    color: var(--foreground);
+  }
+
   /* Remove shadows from all buttons */
   button {
     box-shadow: none !important;
@@ -179,6 +189,15 @@
   --shadow-lg: var(--shadow-lg);
   --shadow-xl: var(--shadow-xl);
   --shadow-2xl: var(--shadow-2xl);
+}
+
+@keyframes themeRipple {
+  from {
+    transform: translate(-50%, -50%) scale(0);
+  }
+  to {
+    transform: translate(-50%, -50%) scale(120);
+  }
 }
 
 /* Email Editor Specific Styles */
@@ -241,6 +260,20 @@
     @apply flex items-center justify-center text-muted-foreground text-xs py-4;
   }
 }
+
+@layer components {
+  .theme-ripple {
+    position: fixed;
+    width: 16px;
+    height: 16px;
+    border-radius: 9999px;
+    pointer-events: none;
+    z-index: 50;
+    transform: translate(-50%, -50%) scale(0);
+    animation: themeRipple 450ms ease-out forwards;
+  }
+}
+
 
 /* Fun animations for Play with header */
 @keyframes bounce-delayed {
