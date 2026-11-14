@@ -1543,7 +1543,6 @@ export function EmailCanvas({
   const [sendStatus, setSendStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
   const [sendError, setSendError] = useState<string>("");
   const currentUser = useQuery(api.users.current);
-  const consumeRateLimit = useMutation(api.rateLimits.consume);
   
   // Login dialog state (for unauthenticated users)
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
@@ -1611,9 +1610,7 @@ export function EmailCanvas({
     setSendError("");
 
     try {
-      // Check rate limit before sending
-      await consumeRateLimit({ action: "email_send" });
-
+      // The server checks the daily send quota (and who it may go to).
       // Convert relative image URLs to absolute URLs for email sending
       const componentsWithAbsoluteUrls = convertImageUrlsToAbsolute(components);
       
@@ -1632,7 +1629,6 @@ export function EmailCanvas({
         },
         body: JSON.stringify({
           to: recipientEmail,
-          from: "mail@drag.email",
           subject: emailSubject,
           html: emailHtml,
         }),

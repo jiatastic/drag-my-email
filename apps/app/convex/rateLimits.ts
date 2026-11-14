@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { auth } from "./auth";
 import { Id } from "./_generated/dataModel";
 
@@ -240,3 +240,26 @@ export const getAll = query({
   },
 });
 
+
+/**
+ * Fixed-window counter for auth emails. Returns false once `key` has been hit `limit` times
+ * in the current window. Called from the OTP providers before anything is sent.
+ */
+export const throttleEmail = internalMutation({
+  args: { key: v.string(), limit: v.number(), windowMs: v.number() },
+  handler: async (ctx, { key, limit, windowMs }): Promise<boolean> => {
+    const now = Date.now();
+    const row = await ctx.db
+      .query("emailThrottle")
+      .withIndex("by_key", (q) => q.eq("key", key))
+      .unique();
+    if (!row || now - row.windowStart >= windowMs) {
+      if (row) await ctx.db.patch(row._id, { count: 1, windowStart: now });
+      else await ctx.db.insert("emailThrottle", { key, count: 1, windowStart: now });
+      return true;
+    }
+    if (row.count >= limit) return false;
+    await ctx.db.patch(row._id, { count: row.count + 1 });
+    return true;
+  },
+});

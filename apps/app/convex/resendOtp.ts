@@ -1,4 +1,26 @@
 import { Email } from "@convex-dev/auth/providers/Email";
+import { ConvexError } from "convex/values";
+import type { GenericActionCtx, GenericDataModel } from "convex/server";
+import { internal } from "./_generated/api";
+
+const HOUR = 60 * 60 * 1000;
+type ActionCtx = GenericActionCtx<GenericDataModel>;
+
+/**
+ * Refuse to send another code when this address already got 3 in the past hour, or when
+ * the whole app has sent 60 in the past hour (a circuit breaker against bots cycling
+ * through addresses).
+ */
+async function throttle(ctx: ActionCtx, kind: string, email: string) {
+  const checks = [
+    { key: `${kind}:${email.trim().toLowerCase()}`, limit: 3, windowMs: HOUR },
+    { key: "auth-email:all", limit: 60, windowMs: HOUR },
+  ];
+  for (const c of checks) {
+    const ok = await ctx.runMutation(internal.rateLimits.throttleEmail, c);
+    if (!ok) throw new ConvexError("Too many codes requested. Please try again in an hour.");
+  }
+}
 
 function generateNumericCode(length: number) {
   const digits = "0123456789";
@@ -67,7 +89,9 @@ export const ResendOTPVerify = Email({
   async generateVerificationToken() {
     return generateNumericCode(6);
   },
-  async sendVerificationRequest({ identifier: email, provider, token }) {
+  // Convex Auth passes its action ctx as a second argument (not in Auth.js's types).
+  async sendVerificationRequest({ identifier: email, provider, token }, ...rest: unknown[]) {
+    await throttle(rest[0] as ActionCtx, "verify", email);
     await sendResendEmail({
       apiKey: (provider as any).apiKey,
       from: (provider as any).from,
@@ -86,7 +110,9 @@ export const ResendOTPPasswordReset = Email({
   async generateVerificationToken() {
     return generateNumericCode(6);
   },
-  async sendVerificationRequest({ identifier: email, provider, token }) {
+  // Convex Auth passes its action ctx as a second argument (not in Auth.js's types).
+  async sendVerificationRequest({ identifier: email, provider, token }, ...rest: unknown[]) {
+    await throttle(rest[0] as ActionCtx, "reset", email);
     await sendResendEmail({
       apiKey: (provider as any).apiKey,
       from: (provider as any).from,
