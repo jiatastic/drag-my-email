@@ -129,4 +129,12 @@ export default defineSchema({
     windowStart: v.number(), // Timestamp when the current window started
   })
     .index("by_user_action", ["userId", "action"]),
+
+  // Caps on auth emails (verification / reset codes), keyed by recipient and globally,
+  // so the sign-up and reset forms can't be used to flood someone's inbox.
+  emailThrottle: defineTable({
+    key: v.string(),
+    count: v.number(),
+    windowStart: v.number(),
+  }).index("by_key", ["key"]),
 });
