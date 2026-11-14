@@ -1,0 +1,27 @@
+apps/app/src/app/api/send-email/route.ts
+  s_cb0e8543114bf5::t_90ede09c4cd2f1 2-4,6-12,16-19,21-31,33-34,37-39,41-44,46-47,53,63-65,71,73,77,80
+apps/app/convex/rateLimits.ts
+  s_cb0e8543114bf5::t_aa64a28bb81cd3 2,243-265
+apps/app/convex/resendOtp.ts
+  s_cb0e8543114bf5::t_1cd1f060d66d01 2-23,92-94,113-115
+apps/app/convex/schema.ts
+  s_cb0e8543114bf5::t_83bc1c0562dae7 132-139
+apps/app/src/components/editor/EmailCanvas.tsx
+  s_cb0e8543114bf5::t_8d97ebe2bc8ae2 1613
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "741c2532d3399521127154a5dd8930172ee7a5f5",
+  "prompts": {},
+  "sessions": {
+    "s_cb0e8543114bf5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "78808293-da8e-4290-81f2-416f88c1186c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Haoxiang Jia <jiahaoxiangpersonal@gmail.com>"
+    }
+  }
+}
